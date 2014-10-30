@@ -1,0 +1,16 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Verbatim Test</title>
+ <note>
+  <code>This is in code in a note.
+  So is this, and it's indented.
+
+This is still in the code at the original indent.
+
+  This is indented after a line break.
+    This is indented even further.
+
+This is no longer indented.</code>
+  <p>This is no longer in the code, but still in the note.</p>
+ </note>
+</page>

@@ -1,0 +1,9 @@
+= Verbatim Test
+
+[screen]
+  This is in a verbatim environment
+  This is still in it.
+
+  This is also still in the verbatim.
+
+This is in its own paragraph.

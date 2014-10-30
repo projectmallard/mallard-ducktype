@@ -1,0 +1,9 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Verbatim Test</title>
+ <screen>This is in a verbatim environment
+This is still in it.
+
+This is also still in the verbatim.</screen>
+ <p>This is in its own paragraph.</p>
+</page>

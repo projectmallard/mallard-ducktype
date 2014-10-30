@@ -1,0 +1,15 @@
+= Verbatim Test
+
+[note]
+  [code]
+  This is in code in a note.
+  So is this.
+
+  This is in a new paragraph in the note.
+
+  [screen]
+    This is in a screen in a note.
+
+    This is still in that screen.
+
+This breaks out of the note.

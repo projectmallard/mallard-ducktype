@@ -41,10 +41,12 @@ class Block:
             if isinstance(child, Block):
                 child.print(depth=depth+1)
             else:
-                lines = child.split('\n')[:-1]
+                lines = child.split('\n')
+                while lines[-1] == '':
+                    lines.pop()
                 for j in range(len(lines)):
                     line = lines[j]
-                    if not (i == 0 and j == 0):
+                    if not (i == 0 and j == 0) and not self.verbatim:
                         line = (' ' * depth) + line
                     if not (i + 1 == len(self.children) and j + 1 == len(lines)):
                         line = line + '\n'
@@ -85,6 +87,9 @@ class DuckParser:
     def parse_line(self, line):
         self._parse_line(line)
 
+    def finish(self):
+        self._push_value()
+
     def _parse_line(self, line):
         if self.state == DuckParser.STATE_TOP:
             self._parse_line_top(line)
@@ -119,8 +124,7 @@ class DuckParser:
             else:
                 self._value += line[self.current.indent:]
         else:
-            self.current.add_text(self._value)
-            self._value = ''
+            self._push_value()
             self.current = self.current.parent
             self.state = DuckParser.STATE_HEADER_POST
             self._parse_line(line)
@@ -136,27 +140,35 @@ class DuckParser:
 
     def _parse_line_block(self, line):
         if line.strip() == '':
-            if self.current.name == 'p':
-                if self._value != '':
-                    self.current.add_text(self._value)
-                    self._value = ''
+            outdent = False
+            if self.current.verbatim:
+                if self.current.indent > self.current.parent.indent:
+                    self._value += '\n'
+                else:
+                    outdent = True
+            elif self.current.name == 'p':
+                outdent = True
+            if outdent:
+                self._push_value()
                 indent = self.current.indent
                 while (not(self.current.division) and
                        self.current.parent.indent == indent):
                     self.current = self.current.parent
-            elif self.current.verbatim:
-                self._value += '\n'
             return
 
         indent = self._get_indent(line)
         if indent < self.current.indent:
-            self._unravel(indent)
+            self._push_value()
+            while (not self.current.division) and self.current.indent > indent:
+                self.current = self.current.parent
 
-        iline = line[indent:]
+        iline = line[self.current.indent:]
         if iline.startswith('['):
             # FIXME: parse atrrs
             name = iline[1:iline.index(']')]
-            self._unravel(indent)
+            self._push_value()
+            while (not self.current.division) and self.current.parent.indent > indent:
+                self.current = self.current.parent
             node = Block(name, indent)
             self.current.add_child(node)
             self.current = node
@@ -182,18 +194,16 @@ class DuckParser:
             if line[i] != ' ':
                 return i
 
-    def _unravel(self, indent):
+    def _push_value(self):
         if self._value != '':
             self.current.add_text(self._value)
             self._value = ''
-        while (not self.current.division) and self.current.parent.indent > indent:
-            self.current = self.current.parent
+
 
 
 if __name__ == '__main__':
     import sys
     parser = DuckParser()
     parser.parse_file(sys.argv[1])
-    #FIXME
-    parser.parse_line('\n')
+    parser.finish()
     parser.document.print()

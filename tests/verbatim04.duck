@@ -1,0 +1,14 @@
+= Verbatim Test
+
+[note]
+  [code]
+    This is in code in a note.
+      So is this, and it's indented.
+
+    This is still in the code at the original indent.
+
+      This is indented after a line break.
+        This is indented even further.
+
+    This is no longer indented.
+  This is no longer in the code, but still in the note.
