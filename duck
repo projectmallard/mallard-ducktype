@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+
+
+def FIXME(msg=None):
+    if msg is not None:
+        print('FIXME: %s' % msg)
+    else:
+        print('FIXME')
+
+
+class Block:
+    def __init__(self, name, indent=0):
+        self.name = name
+        self.indent = indent
+        self.children = []
+        self.parent = None
+        self.division = (name in ('page', 'section'))
+        self.verbatim = (name in ('screen', 'code'))
+
+    def add_child(self, child):
+        self.children.append(child)
+        child.parent = self
+
+    def add_text(self, text):
+        self.children.append(text)
+
+    def print(self, depth=0):
+        if self.name == 'page':
+            print('<?xml versin="1.0" encoding="utf-8"?>')
+        print((' ' * depth) + '<' + self.name, end='')
+        if self.name == 'page':
+            print(' xmlns="http://projectmallard.org/1.0/"', end='')
+        if len(self.children) == 0:
+            print('/>')
+        elif isinstance(self.children[0], Block):
+            print('>')
+        else:
+            print('>', end='')
+        for i in range(len(self.children)):
+            child = self.children[i]
+            if isinstance(child, Block):
+                child.print(depth=depth+1)
+            else:
+                lines = child.split('\n')[:-1]
+                for j in range(len(lines)):
+                    line = lines[j]
+                    if not (i == 0 and j == 0):
+                        line = (' ' * depth) + line
+                    if not (i + 1 == len(self.children) and j + 1 == len(lines)):
+                        line = line + '\n'
+                    print(line, end='')
+        if len(self.children) > 0:
+            if isinstance(self.children[0], Block):
+                print((' ' * depth), end='')
+            print('</' + self.name + '>')
+
+
+class SyntaxError(Exception):
+    pass
+
+
+class DuckParser:
+    STATE_TOP = 1
+    STATE_HEADER = 2
+    STATE_HEADER_POST = 3
+    STATE_SUBHEADER = 4
+    STATE_SUBHEADER_POST = 5
+    STATE_HEADER_INFO = 6
+    STATE_BLOCK = 7
+    STATE_BLOCK_READY = 8
+    STATE_BLOCK_INFO = 9
+
+    def __init__(self):
+        self.state = DuckParser.STATE_TOP
+        self.document = Block('page')
+        self.current = self.document
+        self._value = ''
+
+    def parse_file(self, filename):
+        fd = open(filename)
+        for line in fd:
+            self.parse_line(line)
+        fd.close()
+
+    def parse_line(self, line):
+        self._parse_line(line)
+
+    def _parse_line(self, line):
+        if self.state == DuckParser.STATE_TOP:
+            self._parse_line_top(line)
+        elif self.state == DuckParser.STATE_HEADER:
+            self._parse_line_header(line)
+        elif self.state == DuckParser.STATE_HEADER_POST:
+            self._parse_line_header_post(line)
+        elif self.state == DuckParser.STATE_BLOCK:
+            self._parse_line_block(line)
+        elif self.state == DuckParser.STATE_BLOCK_READY:
+            self._parse_line_block_ready(line)
+        else:
+            FIXME('unknown state')
+
+    def _parse_line_top(self, line):
+        if line.strip() == '':
+            pass
+        elif line.startswith('= '):
+            self._value = line[2:]
+            node = Block('title', self.current.indent + 2)
+            self.current.add_child(node)
+            self.current = node
+            self.state = DuckParser.STATE_HEADER
+        else:
+            raise SyntaxError()
+
+    def _parse_line_header(self, line):
+        if line.startswith(' ' * self.current.indent):
+            iline = line[self.current.indent:]
+            if iline.startswith('['):
+                FIXME('header attributes')
+            else:
+                self._value += line[self.current.indent:]
+        else:
+            self.current.add_text(self._value)
+            self._value = ''
+            self.current = self.current.parent
+            self.state = DuckParser.STATE_HEADER_POST
+            self._parse_line(line)
+
+    def _parse_line_header_post(self, line):
+        if line.startswith('- '):
+            FIXME('subheader')
+        elif line.startswith('@'):
+            FIXME('header attrs')
+        else:
+            self.state = DuckParser.STATE_BLOCK
+            self._parse_line(line)
+
+    def _parse_line_block(self, line):
+        if line.strip() == '':
+            if self.current.name == 'p':
+                if self._value != '':
+                    self.current.add_text(self._value)
+                    self._value = ''
+                indent = self.current.indent
+                while (not(self.current.division) and
+                       self.current.parent.indent == indent):
+                    self.current = self.current.parent
+            elif self.current.verbatim:
+                self._value += '\n'
+            return
+
+        indent = self._get_indent(line)
+        if indent < self.current.indent:
+            self._unravel(indent)
+
+        iline = line[indent:]
+        if iline.startswith('['):
+            # FIXME: parse atrrs
+            name = iline[1:iline.index(']')]
+            self._unravel(indent)
+            node = Block(name, indent)
+            self.current.add_child(node)
+            self.current = node
+            self.state = DuckParser.STATE_BLOCK_READY
+        elif self.current.name not in ('p', 'screen', 'code'):
+            node = Block('p', indent)
+            self.current.add_child(node)
+            self.current = node
+            self._value += iline
+        else:
+            self._value += iline
+
+    def _parse_line_block_ready(self, line):
+        if not line.startswith(' ' * self.current.indent):
+            FIXME()
+            return
+        self.current.indent = self._get_indent(line)
+        self.state = DuckParser.STATE_BLOCK
+        self._parse_line(line)
+
+    def _get_indent(self, line):
+        for i in range(len(line)):
+            if line[i] != ' ':
+                return i
+
+    def _unravel(self, indent):
+        if self._value != '':
+            self.current.add_text(self._value)
+            self._value = ''
+        while (not self.current.division) and self.current.parent.indent > indent:
+            self.current = self.current.parent
+
+
+if __name__ == '__main__':
+    import sys
+    parser = DuckParser()
+    parser.parse_file(sys.argv[1])
+    #FIXME
+    parser.parse_line('\n')
+    parser.document.print()

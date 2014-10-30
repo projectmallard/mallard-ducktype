@@ -1,0 +1,9 @@
+= Block Test
+
+[note]
+  [note]
+  This paragraph is in a note in a note.
+  This is still paragraph 1.
+
+  This is still in the top note.
+  This is still pargraph 2.

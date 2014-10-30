@@ -1,0 +1,10 @@
+#!/bin/sh
+
+for duck in *.duck; do
+    page=$(echo $duck | sed -e 's/\.duck$/.page/')
+    if [ ! -f "$page" ]; then
+	echo $duck;
+    else
+	../duck $duck | cmp - $page || echo $duck
+    fi
+done

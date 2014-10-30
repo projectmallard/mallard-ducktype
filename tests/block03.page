@@ -1,0 +1,12 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Block Test</title>
+ <note>
+  <note>
+   <p>This paragraph is in a note in a note.
+   This is still paragraph 1.</p>
+  </note>
+  <p>This is still in the top note.
+  This is still pargraph 2.</p>
+ </note>
+</page>
