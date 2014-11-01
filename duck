@@ -89,40 +89,49 @@ class SyntaxError(Exception):
 
 
 class AttributeParser:
-    STATE_BLANK = 1
-    STATE_VALUE = 2
-    STATE_DONE = 10
-
     def __init__(self):
-        self.state = AttributeParser.STATE_BLANK
         self.remainder = None
+        self.attributes = Attributes()
+        self.finished = False
         self._quote = None
         self._value = ''
         self._attrname = None
-        self.attributes = Attributes()
 
     def parse_line(self, line):
         i = 0
-        while i < len(line) and self.state != AttributeParser.STATE_DONE:
-            if self.state == AttributeParser.STATE_BLANK:
-                while i < len(line) and line[i].isspace():
-                    i += 1
-                if i >= len(line):
-                    continue
+        while i < len(line) and not self.finished:
+            if self._quote is not None:
+                j = i
+                while j < len(line):
+                    if line[j] == '&':
+                        FIXME()
+                    elif line[j] == self._quote:
+                        self._value += line[i:j]
+                        self.attributes.add_attribute(self._attrname, self._value)
+                        self._value = ''
+                        self._quote = None
+                        i = j
+                        break
+                    else:
+                        j += 1
+                i += 1
+            elif line[i].isspace():
+                i += 1
+            else:
                 if line[i] == ']':
-                    self.state = AttributeParser.STATE_DONE
+                    self.finished = True
                     self.remainder = line[i + 1:]
-                elif line[i] == '.':
+                elif line[i] in ('.', '#'):
                     j = i + 1
                     while j < len(line) and _isnmtoken(line[j]):
                         j += 1
-                    style = line[i + 1:j]
-                    self.attributes.add_attribute('style', style)
+                    word = line[i + 1:j]
+                    if line[i] == '.':
+                        self.attributes.add_attribute('style', word)
+                    else:
+                        self.attributes.add_attribute('id', word)
                     i = j
                 elif line[i] == '>':
-                    i += 1
-                    FIXME()
-                elif line[i] == '#':
                     i += 1
                     FIXME()
                 else:
@@ -137,7 +146,6 @@ class AttributeParser:
                         self._value = ''
                         i = j + 2
                         self._attrname = word
-                        self.state = AttributeParser.STATE_VALUE
                     elif line[j].isspace():
                         i = j
                         FIXME('bare syntax')
@@ -146,24 +154,6 @@ class AttributeParser:
                         FIXME('bare syntax and close')
                     else:
                         raise SyntaxError()
-            elif self.state == AttributeParser.STATE_VALUE:
-                j = i
-                while j < len(line):
-                    if line[j] == '&':
-                        FIXME()
-                    elif line[j] == self._quote:
-                        self._value += line[i:j]
-                        self.attributes.add_attribute(self._attrname, self._value)
-                        self._value = ''
-                        i = j
-                        self.state = AttributeParser.STATE_BLANK
-                        break
-                    else:
-                        j += 1
-                i += 1
-            else:
-                i += 1
-                FIXME()
 
 
 class DuckParser:
@@ -242,7 +232,7 @@ class DuckParser:
                 self.current = self.current.parent
                 self._attrparser = AttributeParser()
                 self._attrparser.parse_line(iline[1:])
-                if self._attrparser.state == AttributeParser.STATE_DONE:
+                if self._attrparser.finished:
                     self.current.attributes = self._attrparser.attributes
                     self.state = DuckParser.STATE_HEADER_ATTR_POST
                 else:
@@ -266,7 +256,7 @@ class DuckParser:
 
     def _parse_line_header_attr(self, line):
         self._attrparser.parse_line(line)
-        if self._attrparser.state == AttributeParser.STATE_DONE:
+        if self._attrparser.finished:
             self.current.attributes = self._attrparser.attributes
             self.state = DuckParser.STATE_HEADER_ATTR_POST
 
