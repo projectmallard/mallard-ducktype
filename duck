@@ -8,11 +8,36 @@ def FIXME(msg=None):
         print('FIXME')
 
 
+class Attributes:
+    def __init__(self):
+        self._attrlist = []
+        self._attrvals = {}
+
+    def add_attribute(self, key, value):
+        if key not in self._attrlist:
+            self._attrlist.append(key)
+        if key == 'style':
+            self._attrvals.setdefault(key, [])
+            self._attrvals[key].append(value)
+        else:
+            self._attrvals[key] = value
+
+    def print(self):
+        for attr in self._attrlist:
+            print(' ' + attr + '="', end='')
+            if attr == 'style':
+                print(' '.join(self._attrvals[attr]), end='')
+            else:
+                print(self._attrvals[attr], end='')
+            print('"', end='')
+
+
 class Block:
     def __init__(self, name, indent=0):
         self.name = name
         self.indent = indent
         self.children = []
+        self.attributes = None
         self.parent = None
         self.division = (name in ('page', 'section'))
         self.verbatim = (name in ('screen', 'code'))
@@ -30,6 +55,8 @@ class Block:
         print((' ' * depth) + '<' + self.name, end='')
         if self.name == 'page':
             print(' xmlns="http://projectmallard.org/1.0/"', end='')
+        if self.attributes is not None:
+            self.attributes.print()
         if len(self.children) == 0:
             print('/>')
         elif isinstance(self.children[0], Block):
@@ -61,22 +88,103 @@ class SyntaxError(Exception):
     pass
 
 
+class AttributeParser:
+    STATE_BLANK = 1
+    STATE_VALUE = 2
+    STATE_DONE = 10
+
+    def __init__(self):
+        self.state = AttributeParser.STATE_BLANK
+        self.remainder = None
+        self._quote = None
+        self._value = ''
+        self._attrname = None
+        self.attributes = Attributes()
+
+    def parse_line(self, line):
+        i = 0
+        while i < len(line) and self.state != AttributeParser.STATE_DONE:
+            if self.state == AttributeParser.STATE_BLANK:
+                while i < len(line) and line[i].isspace():
+                    i += 1
+                if i >= len(line):
+                    continue
+                if line[i] == ']':
+                    self.state = AttributeParser.STATE_DONE
+                    self.remainder = line[i + 1:]
+                elif line[i] == '.':
+                    j = i + 1
+                    while j < len(line) and _isnmtoken(line[j]):
+                        j += 1
+                    style = line[i + 1:j]
+                    self.attributes.add_attribute('style', style)
+                    i = j
+                elif line[i] == '>':
+                    i += 1
+                    FIXME()
+                elif line[i] == '#':
+                    i += 1
+                    FIXME()
+                else:
+                    j = i + 1
+                    while j < len(line) and _isnmtoken(line[j]):
+                        j += 1
+                    word = line[i:j]
+                    if line[j] == '=':
+                        if line[j + 1] not in ('"', "'"):
+                            raise SyntaxError()
+                        self._quote = line[j + 1]
+                        self._value = ''
+                        i = j + 2
+                        self._attrname = word
+                        self.state = AttributeParser.STATE_VALUE
+                    elif line[j].isspace():
+                        i = j
+                        FIXME('bare syntax')
+                    elif line[j] == ']':
+                        i = j
+                        FIXME('bare syntax and close')
+                    else:
+                        raise SyntaxError()
+            elif self.state == AttributeParser.STATE_VALUE:
+                j = i
+                while j < len(line):
+                    if line[j] == '&':
+                        FIXME()
+                    elif line[j] == self._quote:
+                        self._value += line[i:j]
+                        self.attributes.add_attribute(self._attrname, self._value)
+                        self._value = ''
+                        i = j
+                        self.state = AttributeParser.STATE_BLANK
+                        break
+                    else:
+                        j += 1
+                i += 1
+            else:
+                i += 1
+                FIXME()
+
+
 class DuckParser:
     STATE_TOP = 1
     STATE_HEADER = 2
     STATE_HEADER_POST = 3
     STATE_SUBHEADER = 4
     STATE_SUBHEADER_POST = 5
-    STATE_HEADER_INFO = 6
-    STATE_BLOCK = 7
-    STATE_BLOCK_READY = 8
-    STATE_BLOCK_INFO = 9
+    STATE_HEADER_ATTR = 6
+    STATE_HEADER_ATTR_POST = 7
+    STATE_HEADER_INFO = 8
+    STATE_BLOCK = 9
+    STATE_BLOCK_READY = 10
+    STATE_BLOCK_INFO = 11
 
     def __init__(self):
         self.state = DuckParser.STATE_TOP
         self.document = Block('page')
         self.current = self.document
         self._value = ''
+        self._attrparser = None
 
     def parse_file(self, filename):
         fd = open(filename)
@@ -97,6 +205,16 @@ class DuckParser:
             self._parse_line_header(line)
         elif self.state == DuckParser.STATE_HEADER_POST:
             self._parse_line_header_post(line)
+        elif self.state == DuckParser.STATE_SUBHEADER:
+            self._parse_line_subheader(line)
+        elif self.state == DuckParser.STATE_SUBHEADER_POST:
+            self._parse_line_subheader_post(line)
+        elif self.state == DuckParser.STATE_HEADER_ATTR:
+            self._parse_line_header_attr(line)
+        elif self.state == DuckParser.STATE_HEADER_ATTR_POST:
+            self._parse_line_header_attr_post(line)
+        elif self.state == DuckParser.STATE_HEADER_INFO:
+            self._parse_line_header_post_info(line)
         elif self.state == DuckParser.STATE_BLOCK:
             self._parse_line_block(line)
         elif self.state == DuckParser.STATE_BLOCK_READY:
@@ -120,7 +238,15 @@ class DuckParser:
         if line.startswith(' ' * self.current.indent):
             iline = line[self.current.indent:]
             if iline.startswith('['):
-                FIXME('header attributes')
+                self._push_value()
+                self.current = self.current.parent
+                self._attrparser = AttributeParser()
+                self._attrparser.parse_line(iline[1:])
+                if self._attrparser.state == AttributeParser.STATE_DONE:
+                    self.current.attributes = self._attrparser.attributes
+                    self.state = DuckParser.STATE_HEADER_ATTR_POST
+                else:
+                    self.state = DuckParser.STATE_HEADER_ATTR
             else:
                 self._value += line[self.current.indent:]
         else:
@@ -133,7 +259,20 @@ class DuckParser:
         if line.startswith('- '):
             FIXME('subheader')
         elif line.startswith('@'):
-            FIXME('header attrs')
+            FIXME('header info')
+        else:
+            self.state = DuckParser.STATE_BLOCK
+            self._parse_line(line)
+
+    def _parse_line_header_attr(self, line):
+        self._attrparser.parse_line(line)
+        if self._attrparser.state == AttributeParser.STATE_DONE:
+            self.current.attributes = self._attrparser.attributes
+            self.state = DuckParser.STATE_HEADER_ATTR_POST
+
+    def _parse_line_header_attr_post(self, line):
+        if line.startswith('@'):
+            FIXME('header info')
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
@@ -199,6 +338,18 @@ class DuckParser:
             self.current.add_text(self._value)
             self._value = ''
 
+
+def _isnmtoken(c):
+    i = ord(c)
+    return (('A' <= c <= 'Z') or ('a' <= c <= 'z') or ('0' <= c <= '9') or
+            (c == ':' or c == '_' or c == '-' or c == '.' or i == 0xB7) or
+            (0xC0 <= i <= 0xD6) or (0xD8 <= i <= 0xF6) or
+            (0xF8 <= i <= 0x2FF) or (0x370 <= i <= 0x37D) or
+            (0x37F <= i <= 0x1FFF) or (0x200C <= i <= 0x200D) or
+            (0x2070 <= i <= 0x218F) or (0x2C00 <= i <= 0x2FEF) or
+            (0x3001 <= i <= 0xD7FF) or (0xF900 <= i <= 0xFDCF) or
+            (0xFDF0 <= i <= 0xFFFD) or (0x10000 <= i <= 0xEFFFF) or
+            (0x0300 <= i <= 0x036F) or (0x203F <= i <= 0x2040))
 
 
 if __name__ == '__main__':
