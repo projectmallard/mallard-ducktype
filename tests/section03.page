@@ -1,0 +1,27 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Section Test</title>
+ <p>This is a paragraph.</p>
+ <section>
+  <title>First section</title>
+  <p>This paragraph is in the first section</p>
+  <section>
+   <title>First subsection</title>
+   <section>
+    <title>First subsubsection</title>
+   </section>
+  </section>
+  <section>
+   <title>Second subsection</title>
+   <p>This paragraph is in subsection 2.</p>
+   <section>
+    <title>Secont subsubsection</title>
+    <p>This paragraph is in subsubsection 2.</p>
+   </section>
+  </section>
+ </section>
+ <section>
+  <title>Breaking out to a top-level section.</title>
+  <p>And a final paragraph.</p>
+ </section>
+</page>

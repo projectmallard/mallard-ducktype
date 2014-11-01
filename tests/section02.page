@@ -1,0 +1,12 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Section Test</title>
+ <section>
+  <title>This is a section
+  with a long title</title>
+ </section>
+ <section>
+  <title>This is another section</title>
+  <p>This is a paragraph.</p>
+ </section>
+</page>

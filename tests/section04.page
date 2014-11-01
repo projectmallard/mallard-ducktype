@@ -1,0 +1,14 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Section Test</title>
+ <section id="sect1" style="sect1style">
+  <title>Section One</title>
+  <section id="sect1-1" style="sect1style">
+   <title>Section One Point One</title>
+  </section>
+ </section>
+ <section id="sect2">
+  <title>Section Two</title>
+  <p>This is in section two.</p>
+ </section>
+</page>

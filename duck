@@ -38,9 +38,23 @@ class Block:
         self.indent = indent
         self.children = []
         self.attributes = None
-        self.parent = None
         self.division = (name in ('page', 'section'))
         self.verbatim = (name in ('screen', 'code'))
+        self._parent = None
+        self._depth = 1
+
+    @property
+    def depth(self):
+        return self._depth
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, node):
+        self._parent = node
+        self._depth = node._depth + 1
 
     def add_child(self, child):
         self.children.append(child)
@@ -283,6 +297,30 @@ class DuckParser:
                 while (not(self.current.division) and
                        self.current.parent.indent == indent):
                     self.current = self.current.parent
+            return
+
+        sectd = 0
+        if line.startswith('=='):
+            i = 0
+            while i < len(line) and line[i] == '=':
+                i += 1
+            if i < len(line) and line[i] == ' ':
+                sectd = i
+        if sectd > 0:
+            self._push_value
+            while not self.current.division:
+                self.current = self.current.parent
+            while self.current.depth >= sectd:
+                self.current = self.current.parent
+            if sectd != self.current.depth + 1:
+                raise SyntaxError()
+            section = Block('section')
+            self.current.add_child(section)
+            title = Block('title', sectd + 1)
+            section.add_child(title)
+            self.current = title
+            self._value = line[sectd + 1:]
+            self.state = DuckParser.STATE_HEADER
             return
 
         indent = self._get_indent(line)
