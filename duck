@@ -231,7 +231,7 @@ class DuckParser:
             pass
         elif line.startswith('= '):
             self._value = line[2:]
-            node = Block('title', self.current.indent + 2)
+            node = Block('title', 2)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_HEADER
@@ -240,19 +240,7 @@ class DuckParser:
 
     def _parse_line_header(self, line):
         if line.startswith(' ' * self.current.indent):
-            iline = line[self.current.indent:]
-            if iline.startswith('['):
-                self._push_value()
-                self.current = self.current.parent
-                self._attrparser = AttributeParser()
-                self._attrparser.parse_line(iline[1:])
-                if self._attrparser.finished:
-                    self.current.attributes = self._attrparser.attributes
-                    self.state = DuckParser.STATE_HEADER_ATTR_POST
-                else:
-                    self.state = DuckParser.STATE_HEADER_ATTR
-            else:
-                self._value += line[self.current.indent:]
+            self._parse_line_header_attr_start(line)
         else:
             self._push_value()
             self.current = self.current.parent
@@ -260,13 +248,48 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_header_post(self, line):
-        if line.startswith('- '):
-            FIXME('subheader')
+        if line.startswith(('-' * self.current.depth) + ' '):
+            self._value = line[self.current.depth + 1:]
+            node = Block('subtitle', self.current.depth + 1)
+            self.current.add_child(node)
+            self.current = node
+            self.state = DuckParser.STATE_SUBHEADER
         elif line.startswith('@'):
             FIXME('header info')
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
+
+    def _parse_line_subheader(self, line):
+        if line.startswith(' ' * self.current.indent):
+            self._parse_line_header_attr_start(line)
+        else:
+            self._push_value()
+            self.current = self.current.parent
+            self.state = DuckParser.STATE_SUBHEADER_POST
+            self._parse_line(line)
+
+    def _parse_line_subheader_post(self, line):
+        if line.startswith('@'):
+            FIXME('header info')
+        else:
+            self.state = DuckParser.STATE_BLOCK
+            self._parse_line(line)
+
+    def _parse_line_header_attr_start(self, line):
+        iline = line[self.current.indent:]
+        if iline.startswith('['):
+            self._push_value()
+            self.current = self.current.parent
+            self._attrparser = AttributeParser()
+            self._attrparser.parse_line(iline[1:])
+            if self._attrparser.finished:
+                self.current.attributes = self._attrparser.attributes
+                self.state = DuckParser.STATE_HEADER_ATTR_POST
+            else:
+                self.state = DuckParser.STATE_HEADER_ATTR
+        else:
+            self._value += line[self.current.indent:]
 
     def _parse_line_header_attr(self, line):
         self._attrparser.parse_line(line)

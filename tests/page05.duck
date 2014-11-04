@@ -1,0 +1,8 @@
+= Page
+  Title
+- Page
+  Subtitle
+  [#pageid
+  .pagestyle]
+
+This is a paragraph.
