@@ -40,6 +40,9 @@ class Block:
         self.attributes = None
         self.division = (name in ('page', 'section'))
         self.verbatim = (name in ('screen', 'code'))
+        self.terminal = (name in
+                         ('p', 'screen', 'code', 'title',
+                          'subtitle', 'desc', 'cite'))
         self._parent = None
         self._depth = 1
 
@@ -312,7 +315,7 @@ class DuckParser:
                     self._value += '\n'
                 else:
                     outdent = True
-            elif self.current.name == 'p':
+            elif self.current.terminal:
                 outdent = True
             if outdent:
                 self._push_value()
@@ -357,13 +360,14 @@ class DuckParser:
             # FIXME: parse atrrs
             name = iline[1:iline.index(']')]
             self._push_value()
-            while (not self.current.division) and self.current.parent.indent > indent:
+            while ((not self.current.division) and
+                   (self.current.terminal or self.current.parent.indent > indent)):
                 self.current = self.current.parent
             node = Block(name, indent)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_BLOCK_READY
-        elif self.current.name not in ('p', 'screen', 'code'):
+        elif not self.current.terminal:
             node = Block('p', indent)
             self.current.add_child(node)
             self.current = node

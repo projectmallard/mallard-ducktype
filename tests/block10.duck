@@ -1,0 +1,9 @@
+= Block Test
+
+[figure]
+  [title]
+  This is a figure title.
+  [desc]
+  This is a figure desc.
+
+  This is a paragraph in a figure.

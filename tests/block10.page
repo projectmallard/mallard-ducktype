@@ -1,0 +1,9 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Block Test</title>
+ <figure>
+  <title>This is a figure title.</title>
+  <desc>This is a figure desc.</desc>
+  <p>This is a paragraph in a figure.</p>
+ </figure>
+</page>

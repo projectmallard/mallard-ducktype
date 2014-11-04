@@ -1,0 +1,6 @@
+= Block Test
+
+[note]
+  This is a paragraph in a note.
+  [note]
+  This is a paragraph in a note in a note.
