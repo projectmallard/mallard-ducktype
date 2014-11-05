@@ -157,18 +157,24 @@ class AttributeParser:
                         j += 1
                     word = line[i:j]
                     if line[j] == '=':
-                        if line[j + 1] not in ('"', "'"):
-                            raise SyntaxError()
-                        self._quote = line[j + 1]
-                        self._value = ''
-                        i = j + 2
-                        self._attrname = word
-                    elif line[j].isspace():
+                        if line[j + 1] in ('"', "'"):
+                            self._quote = line[j + 1]
+                            self._value = ''
+                            i = j + 2
+                            self._attrname = word
+                        else:
+                            k = j + 1
+                            while k < len(line):
+                                if line[k].isspace() or line[k] == ']':
+                                    break
+                                k += 1
+                            self.attributes.add_attribute(word, line[j + 1:k])
+                            i = k
+                    elif line[j].isspace() or line[j] == ']':
+                        self.attributes.add_attribute('type', line[i:j])
                         i = j
-                        FIXME('bare syntax')
-                    elif line[j] == ']':
-                        i = j
-                        FIXME('bare syntax and close')
+                        if line[j] == ']':
+                            pass
                     else:
                         raise SyntaxError()
 
