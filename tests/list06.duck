@@ -1,2 +1,13 @@
-<?xml versin="1.0" encoding="utf-8"?>
-<page xmlns="http://projectmallard.org/1.0/"/>
+= List Test
+
+[steps]
+* List item 1
+  * Sublist item 1
+    Continuing item 1
+  * Sublist item 2
+* List item 2
+  [steps]
+  * Substep 2.1
+  * Substep 2.2
+    [note]
+    A note in substep 2.2

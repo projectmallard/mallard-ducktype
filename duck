@@ -417,9 +417,7 @@ class DuckParser:
                 FIXME(self.current.name)
             elif self.current.name == 'tree':
                 FIXME(self.current.name)
-            elif self.current.name == 'steps':
-                FIXME(self.current.name)
-            elif self.current.name == 'list':
+            elif self.current.name in ('list', 'steps'):
                 item = Block('item', indent + 2)
                 self.current.add_child(item)
                 self.current = item

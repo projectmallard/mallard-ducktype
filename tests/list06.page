@@ -1,0 +1,32 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>List Test</title>
+ <steps>
+  <item>
+   <p>List item 1</p>
+   <list>
+    <item>
+     <p>Sublist item 1
+     Continuing item 1</p>
+    </item>
+    <item>
+     <p>Sublist item 2</p>
+    </item>
+   </list>
+  </item>
+  <item>
+   <p>List item 2</p>
+   <steps>
+    <item>
+     <p>Substep 2.1</p>
+    </item>
+    <item>
+     <p>Substep 2.2</p>
+     <note>
+      <p>A note in substep 2.2</p>
+     </note>
+    </item>
+   </steps>
+  </item>
+ </steps>
+</page>
