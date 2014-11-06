@@ -1,0 +1,12 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>List Test</title>
+ <list>
+  <item>
+   <p>List item 1</p>
+  </item>
+  <item>
+   <p>List item 2</p>
+  </item>
+ </list>
+</page>

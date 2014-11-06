@@ -40,11 +40,16 @@ class Block:
         self.attributes = None
         self.division = (name in ('page', 'section'))
         self.verbatim = (name in ('screen', 'code'))
+        self.list = (name in ('list', 'steps', 'terms', 'tree'))
         self.terminal = (name in
                          ('p', 'screen', 'code', 'title',
                           'subtitle', 'desc', 'cite'))
         self._parent = None
         self._depth = 1
+
+    @property
+    def empty(self):
+        return len(self.children) == 0
 
     @property
     def depth(self):
@@ -74,7 +79,7 @@ class Block:
             print(' xmlns="http://projectmallard.org/1.0/"', end='')
         if self.attributes is not None:
             self.attributes.print()
-        if len(self.children) == 0:
+        if self.empty:
             print('/>')
         elif isinstance(self.children[0], Block):
             print('>')
@@ -95,7 +100,7 @@ class Block:
                     if not (i + 1 == len(self.children) and j + 1 == len(lines)):
                         line = line + '\n'
                     print(line, end='')
-        if len(self.children) > 0:
+        if not self.empty:
             if isinstance(self.children[0], Block):
                 print((' ' * depth), end='')
             print('</' + self.name + '>')
@@ -367,14 +372,25 @@ class DuckParser:
         iline = line[self.current.indent:]
         if iline.startswith('['):
             self._push_value()
-            while ((not self.current.division) and
-                   (self.current.terminal or self.current.parent.indent > indent)):
+            while (not self.current.division and (
+                    self.current.terminal or
+                    self.current.parent.indent > indent)):
+                if self.current.division:
+                    break
                 self.current = self.current.parent
 
             for j in range(1, len(iline)):
                 if not _isnmtoken(iline[j]):
                     break
             name = iline[1:j]
+
+            while (not self.current.division and (
+                    not self.current.empty and
+                    self.current.parent.indent == indent)):
+                if name == 'item' and self.current.list:
+                    break
+                self.current = self.current.parent
+
             node = Block(name, indent)
             self.current.add_child(node)
             self.current = node
@@ -389,6 +405,32 @@ class DuckParser:
                     self.state = DuckParser.STATE_BLOCK_READY
                 else:
                     self.state = DuckParser.STATE_BLOCK_ATTR
+        elif iline.startswith('* '):
+            self._push_value()
+            while ((not self.current.division) and
+                   (self.current.terminal or self.current.parent.indent > indent)):
+                self.current = self.current.parent
+
+            if self.current.name == 'tr':
+                FIXME(self.current.name)
+            elif self.current.name == 'terms':
+                FIXME(self.current.name)
+            elif self.current.name == 'tree':
+                FIXME(self.current.name)
+            elif self.current.name == 'steps':
+                FIXME(self.current.name)
+            elif self.current.name == 'list':
+                item = Block('item', indent + 2)
+                self.current.add_child(item)
+                self.current = item
+                self._parse_line((' ' * item.indent) + iline[2:])
+            else:
+                node = Block('list', indent)
+                self.current.add_child(node)
+                item = Block('item', indent + 2)
+                node.add_child(item)
+                self.current = item
+                self._parse_line((' ' * item.indent) + iline[2:])
         elif not self.current.terminal:
             node = Block('p', indent)
             self.current.add_child(node)
