@@ -415,10 +415,12 @@ class DuckParser:
                     self.state = DuckParser.STATE_BLOCK_READY
                 else:
                     self.state = DuckParser.STATE_BLOCK_ATTR
+        elif iline.startswith('. '):
+            self._parse_line_block_title(iline, indent)
         elif iline.startswith('- '):
             self._parse_line_block_item_title(iline, indent)
         elif iline.startswith('* '):
-            self._parse_line_block_item(iline, indent)
+            self._parse_line_block_item_content(iline, indent)
         elif not self.current.terminal:
             while (not self.current.division and (
                     not self.current.available and
@@ -430,6 +432,16 @@ class DuckParser:
             self._value += iline
         else:
             self._value += iline
+
+    def _parse_line_block_title(self, iline, indent):
+        self._push_value()
+        while ((not self.current.division) and
+               (self.current.terminal or self.current.parent.indent > indent)):
+            self.current = self.current.parent
+        title = Block('title', indent + 2)
+        self.current.add_child(title)
+        self.current = title
+        self._parse_line((' ' * self.current.indent) + iline[2:])
 
     def _parse_line_block_item_title(self, iline, indent):
         self._push_value()
@@ -454,9 +466,9 @@ class DuckParser:
         title = Block('title', indent + 2)
         self.current.add_child(title)
         self.current = title
-        self._parse_line((' ' * item.indent) + iline[2:])
+        self._parse_line((' ' * self.current.indent) + iline[2:])
 
-    def _parse_line_block_item(self, iline, indent):
+    def _parse_line_block_item_content(self, iline, indent):
         self._push_value()
         while ((not self.current.division) and
                (self.current.terminal or self.current.parent.indent > indent)):
