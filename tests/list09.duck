@@ -1,0 +1,18 @@
+= List Test
+
+[terms]
+- Item 1 Term 1
+- Item 1 Term 2
+* Definition 1
+
+- Item 2 Term 1
+
+- Item 2
+  Term 2
+
+* Definition 2
+  Cointinuing definition 2
+
+  New paragraph in definition 2
+
+Out of the terms list

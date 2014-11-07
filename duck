@@ -52,6 +52,16 @@ class Block:
         return len(self.children) == 0
 
     @property
+    def available(self):
+        if len(self.children) == 0:
+            return True
+        elif len(self.children) == 1:
+            return self.children[0].name == 'title'
+            # FIXME: desc, cite, subtitle?
+        else:
+            return False
+
+    @property
     def depth(self):
         return self._depth
 
@@ -335,7 +345,9 @@ class DuckParser:
                 self._push_value()
                 indent = self.current.indent
                 while (not(self.current.division) and
-                       self.current.parent.indent == indent):
+                       self.current.parent.indent > indent):
+                    self.current = self.current.parent
+                if self.current.terminal:
                     self.current = self.current.parent
             return
 
@@ -375,8 +387,6 @@ class DuckParser:
             while (not self.current.division and (
                     self.current.terminal or
                     self.current.parent.indent > indent)):
-                if self.current.division:
-                    break
                 self.current = self.current.parent
 
             for j in range(1, len(iline)):
@@ -385,7 +395,7 @@ class DuckParser:
             name = iline[1:j]
 
             while (not self.current.division and (
-                    not self.current.empty and
+                    not self.current.available and
                     self.current.parent.indent == indent)):
                 if name == 'item' and self.current.list:
                     break
@@ -405,37 +415,76 @@ class DuckParser:
                     self.state = DuckParser.STATE_BLOCK_READY
                 else:
                     self.state = DuckParser.STATE_BLOCK_ATTR
+        elif iline.startswith('- '):
+            self._parse_line_block_item_title(iline, indent)
         elif iline.startswith('* '):
-            self._push_value()
-            while ((not self.current.division) and
-                   (self.current.terminal or self.current.parent.indent > indent)):
-                self.current = self.current.parent
-
-            if self.current.name == 'tr':
-                FIXME(self.current.name)
-            elif self.current.name == 'terms':
-                FIXME(self.current.name)
-            elif self.current.name == 'tree':
-                FIXME(self.current.name)
-            elif self.current.name in ('list', 'steps'):
-                item = Block('item', indent + 2)
-                self.current.add_child(item)
-                self.current = item
-                self._parse_line((' ' * item.indent) + iline[2:])
-            else:
-                node = Block('list', indent)
-                self.current.add_child(node)
-                item = Block('item', indent + 2)
-                node.add_child(item)
-                self.current = item
-                self._parse_line((' ' * item.indent) + iline[2:])
+            self._parse_line_block_item(iline, indent)
         elif not self.current.terminal:
+            while (not self.current.division and (
+                    not self.current.available and
+                    self.current.parent.indent == indent)):
+                self.current = self.current.parent
             node = Block('p', indent)
             self.current.add_child(node)
             self.current = node
             self._value += iline
         else:
             self._value += iline
+
+    def _parse_line_block_item_title(self, iline, indent):
+        self._push_value()
+        while ((not self.current.division) and
+               (self.current.terminal or self.current.parent.indent > indent)):
+            self.current = self.current.parent
+        if self.current.name != 'terms':
+            node = Block('terms', indent)
+            self.current.add_child(node)
+            self.current = node
+        # By now we've unwound to the terms element. If the preceding
+        # block was a title, then the last item will have only title
+        # elements, and we just keep appending there.
+        if not self.current.empty and self.current.children[-1].name == 'item':
+            item = self.current.children[-1]
+            if not item.empty and item.children[-1].name == 'title':
+                self.current = item
+        if self.current.name != 'item':
+            item = Block('item', indent + 2)
+            self.current.add_child(item)
+            self.current = item
+        title = Block('title', indent + 2)
+        self.current.add_child(title)
+        self.current = title
+        self._parse_line((' ' * item.indent) + iline[2:])
+
+    def _parse_line_block_item(self, iline, indent):
+        self._push_value()
+        while ((not self.current.division) and
+               (self.current.terminal or self.current.parent.indent > indent)):
+            self.current = self.current.parent
+
+        if self.current.name == 'tr':
+            FIXME(self.current.name)
+        elif self.current.name == 'terms':
+            # All the logic above will have unraveled us from the item
+            # created by the title, so we have to step back into it.
+            if self.current.empty or self.current.children[-1].name != 'item':
+                raise SyntaxError()
+            self.current = self.current.children[-1]
+            self._parse_line((' ' * self.current.indent) + iline[2:])
+        elif self.current.name == 'tree':
+            FIXME(self.current.name)
+        elif self.current.name in ('list', 'steps'):
+            item = Block('item', indent + 2)
+            self.current.add_child(item)
+            self.current = item
+            self._parse_line((' ' * item.indent) + iline[2:])
+        else:
+            node = Block('list', indent)
+            self.current.add_child(node)
+            item = Block('item', indent + 2)
+            node.add_child(item)
+            self.current = item
+            self._parse_line((' ' * item.indent) + iline[2:])
 
     def _parse_line_block_attr(self, line):
         self._attrparser.parse_line(line)
