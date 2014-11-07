@@ -332,22 +332,16 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_block(self, line):
+        # Blank lines close off elements that have inline content (terminal)
+        # unless they're verbatim elements that have an inner indent. Only
+        # decreasing indent can break free of those.
         if line.strip() == '':
-            outdent = False
-            if self.current.verbatim:
-                if self.current.indent > self.current.parent.indent:
+            if self.current.terminal:
+                if (self.current.verbatim and
+                    self.current.indent > self.current.parent.indent):
                     self._value += '\n'
                 else:
-                    outdent = True
-            elif self.current.terminal:
-                outdent = True
-            if outdent:
-                self._push_value()
-                indent = self.current.indent
-                while (not(self.current.division) and
-                       self.current.parent.indent > indent):
-                    self.current = self.current.parent
-                if self.current.terminal:
+                    self._push_value()
                     self.current = self.current.parent
             return
 
@@ -375,6 +369,11 @@ class DuckParser:
             self.state = DuckParser.STATE_HEADER
             return
 
+        # If the indent is less than what we can append to the current
+        # node, unravel until we're at the same indent level. Note that
+        # this still might not be the right level. We may or may not be
+        # able to add children to a block at the same indent, but we'll
+        # handle that later, because it depends on stuff.
         indent = self._get_indent(line)
         if indent < self.current.indent:
             self._push_value()
@@ -383,6 +382,7 @@ class DuckParser:
 
         iline = line[self.current.indent:]
         if iline.startswith('['):
+            # Start a block with a standard block declaration.
             self._push_value()
             while (not self.current.division and (
                     self.current.terminal or
@@ -394,6 +394,9 @@ class DuckParser:
                     break
             name = iline[1:j]
 
+            # Now we unravel a bit more. We do not want current to be
+            # at the same indent level, unless one of a number of special
+            # case conditions is met.
             while (not self.current.division and (
                     not self.current.available and
                     self.current.parent.indent == indent)):
@@ -455,9 +458,13 @@ class DuckParser:
         # By now we've unwound to the terms element. If the preceding
         # block was a title, then the last item will have only title
         # elements, and we just keep appending there.
-        if not self.current.empty and self.current.children[-1].name == 'item':
+        if (not self.current.empty
+            and isinstance(self.current.children[-1], Block)
+            and self.current.children[-1].name == 'item'):
             item = self.current.children[-1]
-            if not item.empty and item.children[-1].name == 'title':
+            if (not item.empty
+                and isinstance(self.current.children[-1], Block)
+                and item.children[-1].name == 'title'):
                 self.current = item
         if self.current.name != 'item':
             item = Block('item', indent + 2)
