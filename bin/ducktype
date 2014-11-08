@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+
+import sys
+
+import ducktype
+
+if __name__ == '__main__':
+    parser = ducktype.DuckParser()
+    parser.parse_file(sys.argv[1])
+    parser.finish()
+    parser.document.print()

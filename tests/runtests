@@ -3,8 +3,8 @@
 for duck in *.duck; do
     page=$(echo $duck | sed -e 's/\.duck$/.page/')
     if [ ! -f "$page" ]; then
-	echo $duck;
+        echo $duck;
     else
-	../duck $duck | cmp - $page || echo $duck
+        python3 ../ducktype/__init__.py $duck | cmp - $page || echo $duck
     fi
 done
