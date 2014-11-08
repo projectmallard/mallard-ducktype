@@ -1,5 +1,5 @@
-<?xml versin="1.0" encoding="utf-8"?>
-<page xmlns="http://projectmallard.org/1.0/">
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="block10">
  <title>Block Test</title>
  <figure>
   <title>This is a figure title.</title>

@@ -1,5 +1,5 @@
-<?xml versin="1.0" encoding="utf-8"?>
-<page xmlns="http://projectmallard.org/1.0/">
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="verbatim04">
  <title>Verbatim Test</title>
  <note>
   <code>This is in code in a note.

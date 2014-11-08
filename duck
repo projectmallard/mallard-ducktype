@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os.path
+
 
 def FIXME(msg=None):
     if msg is not None:
@@ -21,6 +23,9 @@ class Attributes:
             self._attrvals[key].append(value)
         else:
             self._attrvals[key] = value
+
+    def __contains__(self, item):
+        return item in self._attrlist
 
     def print(self):
         for attr in self._attrlist:
@@ -83,7 +88,7 @@ class Block:
 
     def print(self, depth=0):
         if self.name == 'page':
-            print('<?xml versin="1.0" encoding="utf-8"?>')
+            print('<?xml version="1.0" encoding="utf-8"?>')
         print((' ' * depth) + '<' + self.name, end='')
         if self.name == 'page':
             print(' xmlns="http://projectmallard.org/1.0/"', end='')
@@ -214,8 +219,12 @@ class DuckParser:
         self.current = self.document
         self._value = ''
         self._attrparser = None
+        self._defaultid = None
 
     def parse_file(self, filename):
+        self._defaultid = os.path.basename(filename)
+        if self._defaultid.endswith('.duck'):
+            self._defaultid = self._defaultid[:-5]
         fd = open(filename)
         for line in fd:
             self.parse_line(line)
@@ -226,6 +235,11 @@ class DuckParser:
 
     def finish(self):
         self._push_value()
+        if self._defaultid is not None:
+            if self.document.attributes is None:
+                self.document.attributes = Attributes()
+            if 'id' not in self.document.attributes:
+                self.document.attributes.add_attribute('id', self._defaultid)
 
     def _parse_line(self, line):
         if self.state == DuckParser.STATE_TOP:
