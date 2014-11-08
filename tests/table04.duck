@@ -1,0 +1,11 @@
+= Table Test
+
+[table]
+[tr]
+- Northwest
+- Northeast
+[tr]
+* Southwest
+* Southeast
+
+Out of the table

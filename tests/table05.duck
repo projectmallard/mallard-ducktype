@@ -1,0 +1,18 @@
+= Table Test
+
+[table]
+[tr]
+- North
+  west
+- North
+
+  east
+[tr]
+* South
+
+  west
+
+* South
+  east
+
+Out of the table

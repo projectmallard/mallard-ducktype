@@ -402,6 +402,14 @@ class DuckParser:
                     self.current.parent.indent == indent)):
                 if name == 'item' and self.current.list:
                     break
+                if name in ('td', 'th') and self.current.name == 'tr':
+                    break
+                if (name == 'tr' and
+                    self.current.name in ('table', 'thead', 'tfoot', 'tbody')):
+                    break
+                if (name in ('thead', 'tfoot', 'tbody') and
+                    self.current.name == 'table'):
+                    break
                 self.current = self.current.parent
 
             node = Block(name, indent)
@@ -451,6 +459,14 @@ class DuckParser:
         while ((not self.current.division) and
                (self.current.terminal or self.current.parent.indent > indent)):
             self.current = self.current.parent
+
+        if self.current.name == 'tr':
+            node = Block('th', indent + 2)
+            self.current.add_child(node)
+            self.current = node
+            self._parse_line((' ' * node.indent) + iline[2:])
+            return
+
         if self.current.name != 'terms':
             node = Block('terms', indent)
             self.current.add_child(node)
@@ -482,7 +498,10 @@ class DuckParser:
             self.current = self.current.parent
 
         if self.current.name == 'tr':
-            FIXME(self.current.name)
+            node = Block('td', indent + 2)
+            self.current.add_child(node)
+            self.current = node
+            self._parse_line((' ' * node.indent) + iline[2:])
         elif self.current.name == 'terms':
             # All the logic above will have unraveled us from the item
             # created by the title, so we have to step back into it.

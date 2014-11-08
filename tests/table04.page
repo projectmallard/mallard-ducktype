@@ -1,0 +1,23 @@
+<?xml versin="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/">
+ <title>Table Test</title>
+ <table>
+  <tr>
+   <th>
+    <p>Northwest</p>
+   </th>
+   <th>
+    <p>Northeast</p>
+   </th>
+  </tr>
+  <tr>
+   <td>
+    <p>Southwest</p>
+   </td>
+   <td>
+    <p>Southeast</p>
+   </td>
+  </tr>
+ </table>
+ <p>Out of the table</p>
+</page>
