@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='ducktype',
+    name='duck',
     version='0.1',
     packages=['ducktype'],
     scripts=['bin/ducktype'],
