@@ -1,0 +1,15 @@
+= Info Test
+  @license
+    This is the license.
+
+    @screen
+    This is verbatim text in a license.
+
+    This is a new paragraph in a license.
+
+    @code
+      This is verbatim text in a license.
+
+      This is still verbatim text in a license.
+
+  This is not the license.

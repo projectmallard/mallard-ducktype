@@ -35,10 +35,11 @@ class Attributes:
             print('"', end='')
 
 
-class Block:
+class Node:
     def __init__(self, name, indent=0):
         self.name = name
         self.indent = indent
+        self.info = None
         self.children = []
         self.attributes = None
         self.division = (name in ('page', 'section'))
@@ -94,13 +95,15 @@ class Block:
             self.attributes.print()
         if self.empty:
             print('/>')
-        elif isinstance(self.children[0], Block):
+        elif isinstance(self.children[0], Block) or isinstance(self.children[0], Info):
             print('>')
         else:
             print('>', end='')
+        if self.info is not None:
+            self.info.print(depth=depth+1)
         for i in range(len(self.children)):
             child = self.children[i]
-            if isinstance(child, Block):
+            if isinstance(child, Block) or isinstance(child, Info):
                 child.print(depth=depth+1)
             else:
                 lines = child.split('\n')
@@ -114,10 +117,15 @@ class Block:
                         line = line + '\n'
                     print(line, end='')
         if not self.empty:
-            if isinstance(self.children[0], Block):
+            if isinstance(self.children[0], Block) or isinstance(self.children[0], Info):
                 print((' ' * depth), end='')
             print('</' + self.name + '>')
 
+class Block(Node):
+    pass
+
+class Info(Node):
+    pass
 
 class SyntaxError(Exception):
     pass
@@ -211,10 +219,17 @@ class DuckParser:
     STATE_BLOCK_READY = 11
     STATE_BLOCK_INFO = 12
 
+    INFO_STATE_NONE = 101
+    INFO_STATE_INFO = 102
+    INFO_STATE_READY = 103
+    INFO_STATE_ATTR = 104
+
     def __init__(self):
         self.state = DuckParser.STATE_TOP
+        self.info_state = DuckParser.INFO_STATE_NONE
         self.document = Block('page')
         self.current = self.document
+        self.curinfo = None
         self._value = ''
         self._attrparser = None
         self._defaultid = None
@@ -240,7 +255,13 @@ class DuckParser:
                 self.document.attributes.add_attribute('id', self._defaultid)
 
     def _parse_line(self, line):
-        if self.state == DuckParser.STATE_TOP:
+        if self.info_state == DuckParser.INFO_STATE_INFO:
+            self._parse_line_info(line)
+        elif self.info_state == DuckParser.INFO_STATE_READY:
+            self._parse_line_info(line)
+        elif self.info_state == DuckParser.INFO_STATE_ATTR:
+            self._parse_line_info_attr(line)
+        elif self.state == DuckParser.STATE_TOP:
             self._parse_line_top(line)
         elif self.state == DuckParser.STATE_HEADER:
             self._parse_line_header(line)
@@ -254,8 +275,6 @@ class DuckParser:
             self._parse_line_header_attr(line)
         elif self.state == DuckParser.STATE_HEADER_ATTR_POST:
             self._parse_line_header_attr_post(line)
-        elif self.state == DuckParser.STATE_HEADER_INFO:
-            self._parse_line_header_post_info(line)
         elif self.state == DuckParser.STATE_BLOCK:
             self._parse_line_block(line)
         elif self.state == DuckParser.STATE_BLOCK_ATTR:
@@ -278,7 +297,15 @@ class DuckParser:
             raise SyntaxError()
 
     def _parse_line_header(self, line):
-        if line.startswith(' ' * self.current.indent):
+        indent = self._get_indent(line)
+        iline = line[indent:]
+        if iline.startswith('@'):
+            self._push_value()
+            self.current = self.current.parent
+            self.state = DuckParser.STATE_BLOCK
+            self.info_state = DuckParser.INFO_STATE_INFO
+            self._parse_line(line)
+        elif indent >= self.current.indent:
             self._parse_line_header_attr_start(line)
         else:
             self._push_value()
@@ -293,14 +320,24 @@ class DuckParser:
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_SUBHEADER
-        elif line.startswith('@'):
-            FIXME('header info')
+        elif line.lstrip().startswith('@'):
+            self.state = DuckParser.STATE_BLOCK
+            self.info_state = DuckParser.INFO_STATE_INFO
+            self._parse_line(line)
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
 
     def _parse_line_subheader(self, line):
-        if line.startswith(' ' * self.current.indent):
+        indent = self._get_indent(line)
+        iline = line[indent:]
+        if iline.startswith('@'):
+            self._push_value()
+            self.current = self.current.parent
+            self.state = DuckParser.STATE_BLOCK
+            self.info_state = DuckParser.INFO_STATE_INFO
+            self._parse_line(line)
+        elif indent >= self.current.indent:
             self._parse_line_header_attr_start(line)
         else:
             self._push_value()
@@ -309,8 +346,10 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_subheader_post(self, line):
-        if line.startswith('@'):
-            FIXME('header info')
+        if line.lstrip().startswith('@'):
+            self.state = DuckParser.STATE_BLOCK
+            self.info_state = DuckParser.INFO_STATE_INFO
+            self._parse_line(line)
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
@@ -325,6 +364,7 @@ class DuckParser:
             if self._attrparser.finished:
                 self.current.attributes = self._attrparser.attributes
                 self.state = DuckParser.STATE_HEADER_ATTR_POST
+                self._attrparser = None
             else:
                 self.state = DuckParser.STATE_HEADER_ATTR
         else:
@@ -335,13 +375,99 @@ class DuckParser:
         if self._attrparser.finished:
             self.current.attributes = self._attrparser.attributes
             self.state = DuckParser.STATE_HEADER_ATTR_POST
+            self._attrparser = None
 
     def _parse_line_header_attr_post(self, line):
-        if line.startswith('@'):
-            FIXME('header info')
+        if line.lstrip().startswith('@'):
+            self.state = DuckParser.STATE_BLOCK
+            self.info_state = DuckParser.INFO_STATE_INFO
+            self._parse_line(line)
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
+
+    def _parse_line_info(self, line):
+        if line.strip() == '':
+            # If the info elements weren't indented past the indent
+            # level of the parent, blank line terminates info.
+            if self.current.indent == self.current.info.indent:
+                self._push_value()
+                self.info_state = DuckParser.INFO_STATE_NONE
+                self._parse_line(line)
+                return
+            # If we're inside a leaf element like a paragraph, break
+            # out of that. Unless it's an indented verbatim element,
+            # in which case the newline is just part of the content.
+            if self.curinfo.terminal:
+                if (self.curinfo.verbatim and
+                    self.curinfo.indent > self.curinfo.parent.indent):
+                    self._value += '\n'
+                else:
+                    self._push_value()
+                    self.curinfo = self.curinfo.parent
+            self.info_state = DuckParser.INFO_STATE_INFO
+            return
+
+        indent = self._get_indent(line)
+        if self.current.info is None:
+            self.current.info = Block('info', indent)
+            self.curinfo = self.current.info
+        if indent < self.current.info.indent:
+            self._push_value()
+            self.info_state = DuckParser.INFO_STATE_NONE
+            self._parse_line(line)
+            return
+        iline = line[indent:]
+        if iline.startswith('@'):
+            if self.curinfo.indent >= indent:
+                self._push_value()
+                while self.curinfo.indent >= indent:
+                    if self.curinfo == self.current.info:
+                        break
+                    self.curinfo = self.curinfo.parent
+            if self.info_state == DuckParser.INFO_STATE_READY:
+                self.curinfo.indent = indent
+                self.info_state = DuckParser.INFO_STATE_INFO
+            for j in range(1, len(iline)):
+                if not _isnmtoken(iline[j]):
+                    break
+            name = iline[1:j]
+            node = Info(name, indent)
+            self.curinfo.add_child(node)
+            self.curinfo = node
+            if iline[j] == '[':
+                self._attrparser = AttributeParser()
+                self._attrparser.parse_line(iline[j + 1:])
+                if self._attrparser.finished:
+                    self.curinfo.attributes = self._attrparser.attributes
+                    self._value = self._attrparser.remainder.lstrip()
+                    self._attrparser = None
+                else:
+                    self.info_state = DuckParser.INFO_STATE_ATTR
+            else:
+                self._value = iline[j:].lstrip()
+        else:
+            if self.info_state == DuckParser.INFO_STATE_READY:
+                self.curinfo.indent = indent
+                self.info_state = DuckParser.INFO_STATE_INFO
+            if indent <= self.current.info.indent:
+                self._push_value()
+                self.info_state = DuckParser.INFO_STATE_NONE
+                self._parse_line(line)
+                return
+            if not self.curinfo.terminal:
+                node = Info('p', indent)
+                self.curinfo.add_child(node)
+                self.curinfo = node
+            self._value += line[indent:]
+
+    def _parse_line_info_attr(self, line):
+        self._attrparser.parse_line(line)
+        if self._attrparser.finished:
+            self.curinfo.attributes = self._attrparser.attributes
+            self._value = self._attrparser.remainder.lstrip()
+            self._attrparser = None
+            self.info_state = DuckParser.INFO_STATE_INFO
 
     def _parse_line_block(self, line):
         # Blank lines close off elements that have inline content (terminal)
@@ -392,7 +518,10 @@ class DuckParser:
             while (not self.current.division) and self.current.indent > indent:
                 self.current = self.current.parent
 
-        iline = line[self.current.indent:]
+        if self.current.verbatim:
+            iline = line[self.current.indent:]
+        else:
+            iline = line[indent:]
         if iline.startswith('['):
             # Start a block with a standard block declaration.
             self._push_value()
@@ -436,6 +565,7 @@ class DuckParser:
                 if self._attrparser.finished:
                     self.current.attributes = self._attrparser.attributes
                     self.state = DuckParser.STATE_BLOCK_READY
+                    self._attrparser = None
                 else:
                     self.state = DuckParser.STATE_BLOCK_ATTR
         elif iline.startswith('. '):
@@ -541,6 +671,7 @@ class DuckParser:
         if self._attrparser.finished:
             self.current.attributes = self._attrparser.attributes
             self.state = DuckParser.STATE_BLOCK_READY
+            self._attrparser = None
 
     def _parse_line_block_ready(self, line):
         if not line.startswith(' ' * self.current.indent):
@@ -557,7 +688,10 @@ class DuckParser:
 
     def _push_value(self):
         if self._value != '':
-            self.current.add_text(self._value)
+            if self.info_state != DuckParser.INFO_STATE_NONE:
+                self.curinfo.add_text(self._value)
+            else:
+                self.current.add_text(self._value)
             self._value = ''
 
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="info11">
+ <info>
+  <license>
+   <p>This is the license.</p>
+   <screen>This is verbatim text in a license.</screen>
+   <p>This is a new paragraph in a license.</p>
+   <code>This is verbatim text in a license.
+
+This is still verbatim text in a license.</code>
+  </license>
+ </info>
+ <title>Info Test</title>
+ <p>This is not the license.</p>
+</page>

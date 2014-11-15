@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="info02">
+ <info>
+  <desc>Test of info elements.</desc>
+ </info>
+ <title>Info Test</title>
+ <subtitle>Info Subtitle</subtitle>
+ <p>This is a page with info elements.</p>
+</page>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="info12">
+ <info>
+  <credit>
+   <name>Shaun McCance</name>
+   <email>shaunm@gnome.org</email>
+  </credit>
+  <desc>A page description</desc>
+ </info>
+ <title>Info Test</title>
+ <p>This paragraph is not in the info.</p>
+</page>
