@@ -708,10 +708,13 @@ class DuckParser:
             self._attrparser = None
 
     def _parse_line_block_ready(self, line):
-        if not line.startswith(' ' * self.current.inner):
-            FIXME()
-            return
-        self.current.inner = self._get_indent(line)
+        indent = self._get_indent(line)
+        if indent < self.current.outer:
+            while ((not self.current.division) and
+                   (self.current.outer > indent)):
+                self.current = self.current.parent
+        else:
+            self.current.inner = self._get_indent(line)
         self.state = DuckParser.STATE_BLOCK
         self._parse_line(line)
 

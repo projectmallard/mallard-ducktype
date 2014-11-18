@@ -1,0 +1,5 @@
+= Block Test
+
+[note]
+  [media src="foo.png"]
+This paragraph is out of the note.
