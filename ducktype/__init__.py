@@ -51,9 +51,11 @@ class Node:
         self.list = (name in ('list', 'steps', 'terms', 'tree'))
         self.terminal = (name in
                          ('p', 'screen', 'code', 'title',
-                          'subtitle', 'desc', 'cite'))
+                          'subtitle', 'desc', 'cite',
+                          'name', 'email'))
         self._parent = None
         self._depth = 1
+        self._softbreak = False # Help keep out pesky trailing newlines
 
     @property
     def empty(self):
@@ -83,22 +85,39 @@ class Node:
         self._depth = node._depth + 1
 
     def add_child(self, child):
+        if self._softbreak:
+            self.children[-1].append('\n')
+            self._softbreak = False
         self.children.append(child)
         child.parent = self
 
     def add_text(self, text):
-        self.children.append(text)
+        if self._softbreak:
+            self.children[-1].append('\n')
+            self._softbreak = False
+        if text.endswith('\n'):
+            text = text[:-1]
+            self._softbreak = True
+        if len(self.children) > 0 and isinstance(self.children[-1], str):
+            self.children[-1].append(text)
+        else:
+            self.children.append(text)
 
     def print(self, depth=0):
         if self.name == 'page':
             print('<?xml version="1.0" encoding="utf-8"?>')
-        print((' ' * depth) + '<' + self.name, end='')
+        if not isinstance(self, Inline):
+            print((' ' * depth), end='')
+        print('<' + self.name, end='')
         if self.name == 'page':
             print(' xmlns="http://projectmallard.org/1.0/"', end='')
         if self.attributes is not None:
             self.attributes.print()
         if self.empty:
-            print('/>')
+            if isinstance(self, Inline):
+                print('/>', end='')
+            else:
+                print('/>')
         elif isinstance(self.children[0], Block) or isinstance(self.children[0], Info):
             print('>')
         else:
@@ -107,9 +126,11 @@ class Node:
             self.info.print(depth=depth+1)
         for i in range(len(self.children)):
             child = self.children[i]
-            if isinstance(child, Block) or isinstance(child, Info):
+            if isinstance(child, Inline):
+                child.print(depth=depth)
+            elif isinstance(child, Node):
                 child.print(depth=depth+1)
-            else:
+            elif '\n' in child:
                 lines = child.split('\n')
                 while lines[-1] == '':
                     lines.pop()
@@ -120,19 +141,98 @@ class Node:
                     if not (i + 1 == len(self.children) and j + 1 == len(lines)):
                         line = line + '\n'
                     print(line, end='')
+            else:
+                print(child, end='')
         if not self.empty:
-            if isinstance(self.children[0], Block) or isinstance(self.children[0], Info):
-                print((' ' * depth), end='')
-            print('</' + self.name + '>')
+            if isinstance(self, Inline):
+                print('</' + self.name + '>', end='')
+            elif self.terminal:
+                print('</' + self.name + '>')
+            else:
+                print((' ' * depth) + '</' + self.name + '>')
+
 
 class Block(Node):
     pass
 
+
 class Info(Node):
     pass
 
+
+class Inline(Node):
+    pass
+
+
 class SyntaxError(Exception):
     pass
+
+
+class InlineParser:
+    def __init__(self):
+        # Dummy node just to hold children while we parse
+        self.current = Inline('_')
+        pass
+
+    def parse_text(self, text):
+        self._parse_text(text)
+        while self.current.parent is not None:
+            self.current = self.current.parent
+        return self.current.children
+
+    def _parse_text(self, text):
+        start = cur = 0
+        while cur < len(text):
+            if self.current.parent is not None and text[cur] == ')':
+                self.current.add_text(text[start:cur])
+                self.current = self.current.parent
+                cur += 1
+                start = cur
+            elif cur == len(text) - 1:
+                cur += 1
+                self.current.add_text(text[start:cur])
+            elif text[cur] == '$' and text[cur + 1] in ('$', '[', '('):
+                FIXME('escaped char')
+            elif text[cur] == '$' and _isnmtoken(text[cur + 1]):
+                end = cur + 1
+                while end < len(text):
+                    if not _isnmtoken(text[end]):
+                        break
+                    end += 1
+                if end == len(text):
+                    self.current.add_text(text[start:end])
+                    cur = end
+                elif text[end] == ';':
+                    FIXME('entity reference')
+                    start = cur = end + 1
+                elif text[end] == '[':
+                    self.current.add_text(text[start:cur])
+                    node = Inline(text[cur + 1:end])
+                    self.current.add_child(node)
+                    attrparser = AttributeParser()
+                    attrparser.parse_line(text[end + 1:])
+                    if not attrparser.finished:
+                        # We know we have all the text there could be,
+                        # so this an unclosed attribute list. Do we make
+                        # that an error, auto-close, or decide this was
+                        # never really markup after all?
+                        FIXME('unclosed attribute list')
+                    node.attributes = attrparser.attributes
+                    start = cur = len(text) - len(attrparser.remainder)
+                    if cur < len(text) and text[cur] == '(':
+                        self.current = node
+                        start = cur = cur + 1
+                elif text[end] == '(':
+                    self.current.add_text(text[start:cur])
+                    node = Inline(text[cur + 1:end])
+                    self.current.add_child(node)
+                    self.current = node
+                    start = cur = end + 1
+                else:
+                    cur = end
+            else:
+                cur += 1
+
 
 
 class AttributeParser:
@@ -251,6 +351,19 @@ class DuckParser:
     def parse_line(self, line):
         self._parse_line(line)
 
+    def parse_inline(self, node=None):
+        if node is None:
+            node = self.document
+        newchildren = []
+        for child in node.children:
+            if isinstance(child, str):
+                parser = InlineParser()
+                newchildren.extend(parser.parse_text(child))
+            else:
+                self.parse_inline(child)
+                newchildren.append(child)
+        node.children = newchildren
+
     def finish(self):
         self._push_value()
         if self._defaultid is not None:
@@ -258,6 +371,7 @@ class DuckParser:
                 self.document.attributes = Attributes()
             if 'id' not in self.document.attributes:
                 self.document.attributes.add_attribute('id', self._defaultid)
+        self.parse_inline()
 
     def _parse_line(self, line):
         if self.info_state == DuckParser.INFO_STATE_INFO:

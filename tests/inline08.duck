@@ -1,0 +1,5 @@
+= Inline Test
+
+This element is empty: $em[]
+
+This element is empty: $em[] and has stuff after it.

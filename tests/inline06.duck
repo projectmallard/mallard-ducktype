@@ -1,0 +1,3 @@
+= Inline Test
+
+We can $em(nest $gui(inline $key(content))).
