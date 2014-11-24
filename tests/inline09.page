@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="inline09">
+ <title>Inline Test</title>
+ <p>This page has an entity reference é</p>
+ <p>And another one é with content after it.</p>
+</page>

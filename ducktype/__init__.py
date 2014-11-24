@@ -1,5 +1,7 @@
 import os.path
 
+import entities
+
 
 def FIXME(msg=None):
     if msg is not None:
@@ -93,13 +95,13 @@ class Node:
 
     def add_text(self, text):
         if self._softbreak:
-            self.children[-1].append('\n')
+            self.children[-1] += '\n'
             self._softbreak = False
         if text.endswith('\n'):
             text = text[:-1]
             self._softbreak = True
         if len(self.children) > 0 and isinstance(self.children[-1], str):
-            self.children[-1].append(text)
+            self.children[-1] += text
         else:
             self.children.append(text)
 
@@ -203,7 +205,27 @@ class InlineParser:
                     self.current.add_text(text[start:end])
                     cur = end
                 elif text[end] == ';':
-                    FIXME('entity reference')
+                    self.current.add_text(text[start:cur])
+                    entname = text[cur + 1:end]
+                    if entname in entities.entities:
+                        self.current.add_text(entities.entities[entname])
+                    else:
+                        # Try to treat it as a hex numeric reference
+                        hexnum = 0
+                        for c in entname:
+                            if c in '0123456789':
+                                hexnum = hexnum * 16 + (ord(c) - 48)
+                            elif c in 'abcdef':
+                                hexnum = hexnum * 16 + (ord(c) - 87)
+                            elif c in 'ABCDEF':
+                                hexnum = hexnum * 16 + (ord(c) - 55)
+                            else:
+                                hexnum = None
+                                break
+                        if hexnum is not None:
+                            self.current.add_text(chr(hexnum))
+                        else:
+                            raise SyntaxError()
                     start = cur = end + 1
                 elif text[end] == '[':
                     self.current.add_text(text[start:cur])
