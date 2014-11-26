@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="inline11">
+ <title>Inline Test</title>
+ <p>This page has numeric entity refs: é.</p>
+ <p>These look numeric, but aren't: ∾ ∾̳.</p>
+</page>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="inline13">
+ <title>Inline Test</title>
+ <p>This is a link: <link href="http://projectmallard.org/"/>.</p>
+ <p>This is a link: <link href="http://projectmallard.org/">Mallard</link>.</p>
+</page>

@@ -1,0 +1,5 @@
+= Inline Test
+
+This is a link: $link[>>http://projectmallard.org/].
+
+This is a link: $link[>>http://projectmallard.org/ ](Mallard).

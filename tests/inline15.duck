@@ -1,0 +1,4 @@
+= Inline Test
+
+Let's escape $em[style="$"mystyle$""](stuff) and then not
+escape $em[style="$$"](other stuff).

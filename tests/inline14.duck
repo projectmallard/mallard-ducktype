@@ -1,0 +1,7 @@
+= Inline Test
+
+This is a test of escaping in attribute values.
+$em[style="$quot;quoted style$quot;"](quoted style).
+$em[style='$apos;quoted style$apos;'](quoted style).
+$link[>$dollar;sigils](dollar).
+$link[>>http://$dollar;sigils.example.com/](dollar).

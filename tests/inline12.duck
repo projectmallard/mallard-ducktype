@@ -1,0 +1,4 @@
+= Inline Test
+
+This is a link: $link[>index]. This is a $link[>index](with
+content).

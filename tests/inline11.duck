@@ -1,3 +1,5 @@
 = Inline Test
 
 This page has numeric entity refs: $e9;.
+
+These look numeric, but aren't: $ac; $acE;.

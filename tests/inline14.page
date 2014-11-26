@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="inline14">
+ <title>Inline Test</title>
+ <p>This is a test of escaping in attribute values.
+ <em style="&quot;quoted style&quot;">quoted style</em>.
+ <em style="'quoted style'">quoted style</em>.
+ <link xref="$sigils">dollar</link>.
+ <link href="http://$sigils.example.com/">dollar</link>.</p>
+</page>

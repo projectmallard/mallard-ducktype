@@ -9,6 +9,14 @@ def FIXME(msg=None):
     else:
         print('FIXME')
 
+def _escape_xml_attr(s):
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('"', '&quot;')
+
+def _escape_xml(s):
+    return s.replace('&', '&amp;').replace('<', '&lt;')
+
+_escaped_chars = '$*=-@[]()"\''
+
 
 class Attributes:
     def __init__(self):
@@ -31,9 +39,10 @@ class Attributes:
         for attr in self._attrlist:
             print(' ' + attr + '="', end='')
             if attr == 'style':
-                print(' '.join(self._attrvals[attr]), end='')
+                print(' '.join([_escape_xml_attr(s) for s in self._attrvals[attr]]),
+                      end='')
             else:
-                print(self._attrvals[attr], end='')
+                print(_escape_xml_attr(self._attrvals[attr]), end='')
             print('"', end='')
 
 
@@ -88,7 +97,7 @@ class Node:
 
     def add_child(self, child):
         if self._softbreak:
-            self.children[-1].append('\n')
+            self.children[-1] += '\n'
             self._softbreak = False
         self.children.append(child)
         child.parent = self
@@ -105,7 +114,8 @@ class Node:
         else:
             self.children.append(text)
 
-    def print(self, depth=0):
+    def print(self, depth=0, verbatim=False):
+        verbatim = verbatim or self.verbatim
         if self.name == 'page':
             print('<?xml version="1.0" encoding="utf-8"?>')
         if not isinstance(self, Inline):
@@ -129,10 +139,25 @@ class Node:
         for i in range(len(self.children)):
             child = self.children[i]
             if isinstance(child, Inline):
-                child.print(depth=depth)
+                child.print(depth=depth, verbatim=verbatim)
             elif isinstance(child, Node):
-                child.print(depth=depth+1)
+                child.print(depth=depth+1, verbatim=verbatim)
             elif '\n' in child:
+                nl = child.find('\n')
+                while nl >= 0:
+                    if nl + 1 == len(child) and i + 1 == len(self.children):
+                        print(_escape_xml(child[:nl]), end='')
+                    elif verbatim or (nl + 1 < len(child) and child[nl + 1] == '\n'):
+                        print(_escape_xml(child[:nl]))
+                    else:
+                        print(_escape_xml(child[:nl]) + '\n' + (' ' * depth), end='')
+                    child = child[nl + 1:]
+                    nl = child.find('\n')
+                if child != '':
+                    print(_escape_xml(child), end='')
+                continue
+                print(child.replace('\n', '\n' + (' ' * depth) + ':'), end='')
+                continue
                 lines = child.split('\n')
                 while lines[-1] == '':
                     lines.pop()
@@ -141,8 +166,8 @@ class Node:
                     if not (i == 0 and j == 0) and not self.verbatim:
                         line = (' ' * depth) + line
                     if not (i + 1 == len(self.children) and j + 1 == len(lines)):
-                        line = line + '\n'
-                    print(line, end='')
+                        line = line + ':\n'
+                    print(_escape_xml(line), end='')
             else:
                 print(child, end='')
         if not self.empty:
@@ -171,10 +196,13 @@ class SyntaxError(Exception):
 
 
 class InlineParser:
-    def __init__(self):
+    def __init__(self, parent):
         # Dummy node just to hold children while we parse
         self.current = Inline('_')
-        pass
+        self._parent = parent
+
+    def lookup_entity(self, entity):
+        return self._parent.lookup_entity(entity)
 
     def parse_text(self, text):
         self._parse_text(text)
@@ -193,8 +221,11 @@ class InlineParser:
             elif cur == len(text) - 1:
                 cur += 1
                 self.current.add_text(text[start:cur])
-            elif text[cur] == '$' and text[cur + 1] in ('$', '[', '('):
-                FIXME('escaped char')
+            elif text[cur] == '$' and text[cur + 1] in _escaped_chars:
+                self.current.add_text(text[start:cur])
+                self.current.add_text(text[cur + 1])
+                cur += 2
+                start = cur
             elif text[cur] == '$' and _isnmtoken(text[cur + 1]):
                 end = cur + 1
                 while end < len(text):
@@ -207,31 +238,17 @@ class InlineParser:
                 elif text[end] == ';':
                     self.current.add_text(text[start:cur])
                     entname = text[cur + 1:end]
-                    if entname in entities.entities:
-                        self.current.add_text(entities.entities[entname])
+                    entval = self._parent.lookup_entity(entname)
+                    if entval is not None:
+                        self.current.add_text(entval)
                     else:
-                        # Try to treat it as a hex numeric reference
-                        hexnum = 0
-                        for c in entname:
-                            if c in '0123456789':
-                                hexnum = hexnum * 16 + (ord(c) - 48)
-                            elif c in 'abcdef':
-                                hexnum = hexnum * 16 + (ord(c) - 87)
-                            elif c in 'ABCDEF':
-                                hexnum = hexnum * 16 + (ord(c) - 55)
-                            else:
-                                hexnum = None
-                                break
-                        if hexnum is not None:
-                            self.current.add_text(chr(hexnum))
-                        else:
                             raise SyntaxError()
                     start = cur = end + 1
                 elif text[end] == '[':
                     self.current.add_text(text[start:cur])
                     node = Inline(text[cur + 1:end])
                     self.current.add_child(node)
-                    attrparser = AttributeParser()
+                    attrparser = AttributeParser(self)
                     attrparser.parse_line(text[end + 1:])
                     if not attrparser.finished:
                         # We know we have all the text there could be,
@@ -258,13 +275,57 @@ class InlineParser:
 
 
 class AttributeParser:
-    def __init__(self):
+    def __init__(self, parent):
         self.remainder = None
         self.attributes = Attributes()
         self.finished = False
         self._quote = None
         self._value = ''
         self._attrname = None
+        self._parent = parent
+
+    def parse_value(self, text):
+        retval = ''
+        start = cur = 0
+        while cur < len(text):
+            if text[cur] == '$':
+                if cur == len(text) - 1:
+                    cur += 1
+                    retval += text[start:cur]
+                    start = cur
+                elif text[cur] == '$' and text[cur + 1] in _escaped_chars:
+                    retval += text[start:cur]
+                    retval += text[cur + 1]
+                    cur += 2
+                    start = cur
+                elif text[cur] == '$' and _isnmtoken(text[cur + 1]):
+                    end = cur + 1
+                    while end < len(text):
+                        if not _isnmtoken(text[end]):
+                            break
+                        end += 1
+                    if end == len(text):
+                        retval += text[start:end]
+                        start = cur = end
+                    elif text[end] == ';':
+                        retval += text[start:cur]
+                        start = cur
+                        entname = text[cur + 1:end]
+                        entval = self._parent.lookup_entity(entname)
+                        if entval is not None:
+                            retval += entval
+                        else:
+                            raise SyntaxError()
+                        start = cur = end + 1
+                    else:
+                        cur = end
+                else:
+                    cur += 1
+            else:
+                cur += 1
+        if cur != start:
+            retval += text[start:cur]
+        return retval
 
     def parse_line(self, line):
         i = 0
@@ -272,10 +333,16 @@ class AttributeParser:
             if self._quote is not None:
                 j = i
                 while j < len(line):
-                    if line[j] == '&':
-                        FIXME()
+                    if line[j] == '$':
+                        # Will be parsed later. Just skip the escaped quote
+                        # char so it doesn't close the attribute value.
+                        if j + 1 < len(line) and line[j] in _escaped_chars:
+                            j += 2
+                        else:
+                            j += 1
                     elif line[j] == self._quote:
                         self._value += line[i:j]
+                        self._value = self.parse_value(self._value)
                         self.attributes.add_attribute(self._attrname, self._value)
                         self._value = ''
                         self._quote = None
@@ -292,9 +359,11 @@ class AttributeParser:
                     self.remainder = line[i + 1:]
                 elif line[i] in ('.', '#'):
                     j = i + 1
-                    while j < len(line) and _isnmtoken(line[j]):
+                    while j < len(line):
+                        if line[j].isspace() or line[j] == ']':
+                            break
                         j += 1
-                    word = line[i + 1:j]
+                    word = self.parse_value(line[i + 1:j])
                     if line[i] == '.':
                         self.attributes.add_attribute('style', word)
                     else:
@@ -302,7 +371,24 @@ class AttributeParser:
                     i = j
                 elif line[i] == '>':
                     i += 1
-                    FIXME()
+                    if line[i] == '>':
+                        j = i + 2
+                        while j < len(line):
+                            if line[j].isspace() or line[j] == ']':
+                                break
+                            j += 1
+                        word = self.parse_value(line[i + 1:j])
+                        self.attributes.add_attribute('href', word)
+                        i = j
+                    else:
+                        j = i + 1
+                        while j < len(line):
+                            if line[j].isspace() or line[j] == ']':
+                                break
+                            j += 1
+                        word = self.parse_value(line[i:j])
+                        self.attributes.add_attribute('xref', word)
+                        i = j
                 else:
                     j = i + 1
                     while j < len(line) and _isnmtoken(line[j]):
@@ -320,10 +406,12 @@ class AttributeParser:
                                 if line[k].isspace() or line[k] == ']':
                                     break
                                 k += 1
-                            self.attributes.add_attribute(word, line[j + 1:k])
+                            value = self.parse_value(line[j + 1:k])
+                            self.attributes.add_attribute(word, value)
                             i = k
                     elif line[j].isspace() or line[j] == ']':
-                        self.attributes.add_attribute('type', line[i:j])
+                        value = self.parse_value(line[i:j])
+                        self.attributes.add_attribute('type', value)
                         i = j
                         if line[j] == ']':
                             pass
@@ -361,6 +449,26 @@ class DuckParser:
         self._attrparser = None
         self._defaultid = None
 
+    def lookup_entity(self, entity):
+        if entity in entities.entities:
+            return entities.entities[entity]
+        else:
+            # Try to treat it as a hex numeric reference
+            hexnum = 0
+            for c in entity:
+                if c in '0123456789':
+                    hexnum = hexnum * 16 + (ord(c) - 48)
+                elif c in 'abcdef':
+                    hexnum = hexnum * 16 + (ord(c) - 87)
+                elif c in 'ABCDEF':
+                    hexnum = hexnum * 16 + (ord(c) - 55)
+                else:
+                    hexnum = None
+                    break
+            if hexnum is not None:
+                return chr(hexnum)
+        return None
+
     def parse_file(self, filename):
         self._defaultid = os.path.basename(filename)
         if self._defaultid.endswith('.duck'):
@@ -379,7 +487,7 @@ class DuckParser:
         newchildren = []
         for child in node.children:
             if isinstance(child, str):
-                parser = InlineParser()
+                parser = InlineParser(self)
                 newchildren.extend(parser.parse_text(child))
             else:
                 self.parse_inline(child)
@@ -502,7 +610,7 @@ class DuckParser:
         if iline.startswith('['):
             self._push_value()
             self.current = self.current.parent
-            self._attrparser = AttributeParser()
+            self._attrparser = AttributeParser(self)
             self._attrparser.parse_line(iline[1:])
             if self._attrparser.finished:
                 self.current.attributes = self._attrparser.attributes
@@ -601,7 +709,7 @@ class DuckParser:
 
         if iline[j] == '[':
             self.info_state = DuckParser.INFO_STATE_ATTR
-            self._attrparser = AttributeParser()
+            self._attrparser = AttributeParser(self)
             self._parse_line_info_attr(iline[j + 1:])
         else:
             self._value = iline[j:].lstrip()
@@ -730,7 +838,7 @@ class DuckParser:
             if iline[j] == ']':
                 self.state = DuckParser.STATE_BLOCK_READY
             else:
-                self._attrparser = AttributeParser()
+                self._attrparser = AttributeParser(self)
                 self._attrparser.parse_line(iline[j:])
                 if self._attrparser.finished:
                     self.current.attributes = self._attrparser.attributes
