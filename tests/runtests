@@ -2,9 +2,12 @@
 
 for duck in *.duck; do
     page=$(echo $duck | sed -e 's/\.duck$/.page/')
-    if [ ! -f "$page" ]; then
-        echo $duck;
-    else
+    error=$(echo $duck | sed -e 's/\.duck$/.error/')
+    if [ -f "$page" ]; then
         python3 ../ducktype/__init__.py $duck | cmp - $page || echo $duck
+    elif [ -f "$error" ]; then
+        python3 ../ducktype/__init__.py $duck | cmp - $error || echo $duck
+    else
+        echo $duck;
     fi
 done

@@ -1,0 +1,5 @@
+= Error Test
+
+[listing
+[code]
+  Somebody forgot to close the $code(listing) element above.

@@ -47,7 +47,7 @@ class Attributes:
 
 
 class Node:
-    def __init__(self, name, outer=0, inner=None):
+    def __init__(self, name, outer=0, inner=None, linenum=0):
         self.name = name
         self.outer = outer
         if inner is None:
@@ -64,6 +64,7 @@ class Node:
                          ('p', 'screen', 'code', 'title',
                           'subtitle', 'desc', 'cite',
                           'name', 'email'))
+        self.linenum = linenum
         self._parent = None
         self._depth = 1
         self._softbreak = False # Help keep out pesky trailing newlines
@@ -192,13 +193,19 @@ class Inline(Node):
 
 
 class SyntaxError(Exception):
-    pass
+    def __init__(self, message, parser):
+        self.message = message
+        self.parser = parser
+        self.filename = parser.filename
+        self.linenum = parser.linenum
 
 
 class InlineParser:
-    def __init__(self, parent):
+    def __init__(self, parent, linenum=1):
         # Dummy node just to hold children while we parse
         self.current = Inline('_')
+        self.filename = parent.filename
+        self.linenum = linenum
         self._parent = parent
 
     def lookup_entity(self, entity):
@@ -242,7 +249,7 @@ class InlineParser:
                     if entval is not None:
                         self.current.add_text(entval)
                     else:
-                            raise SyntaxError()
+                        raise SyntaxError('Unrecognized entity: ' + entname, self)
                     start = cur = end + 1
                 elif text[end] == '[':
                     self.current.add_text(text[start:cur])
@@ -257,6 +264,7 @@ class InlineParser:
                         # never really markup after all?
                         FIXME('unclosed attribute list')
                     node.attributes = attrparser.attributes
+                    self.linenum = attrparser.linenum
                     start = cur = len(text) - len(attrparser.remainder)
                     if cur < len(text) and text[cur] == '(':
                         self.current = node
@@ -270,6 +278,8 @@ class InlineParser:
                 else:
                     cur = end
             else:
+                if text[cur] == '\n':
+                    self.linenum += 1
                 cur += 1
 
 
@@ -279,6 +289,8 @@ class AttributeParser:
         self.remainder = None
         self.attributes = Attributes()
         self.finished = False
+        self.filename = parent.filename
+        self.linenum = parent.linenum
         self._quote = None
         self._value = ''
         self._attrname = None
@@ -315,13 +327,15 @@ class AttributeParser:
                         if entval is not None:
                             retval += entval
                         else:
-                            raise SyntaxError()
+                            raise SyntaxError('Unrecognized entity: ' + entname, self)
                         start = cur = end + 1
                     else:
                         cur = end
                 else:
                     cur += 1
             else:
+                if text[cur] == '\n':
+                    self.linenum += 1
                 cur += 1
         if cur != start:
             retval += text[start:cur]
@@ -352,71 +366,57 @@ class AttributeParser:
                         j += 1
                 i += 1
             elif line[i].isspace():
+                if line[i] == '\n':
+                    self.linenum += 1
                 i += 1
-            else:
-                if line[i] == ']':
-                    self.finished = True
-                    self.remainder = line[i + 1:]
-                elif line[i] in ('.', '#'):
-                    j = i + 1
-                    while j < len(line):
-                        if line[j].isspace() or line[j] == ']':
-                            break
-                        j += 1
-                    word = self.parse_value(line[i + 1:j])
-                    if line[i] == '.':
-                        self.attributes.add_attribute('style', word)
+            elif line[i] == ']':
+                self.finished = True
+                self.remainder = line[i + 1:]
+            elif line[i] in ('.', '#', '>'):
+                j = i + 1
+                while j < len(line):
+                    if line[j].isspace() or line[j] == ']':
+                        break
+                    j += 1
+                word = self.parse_value(line[i + 1:j])
+                if line[i] == '>':
+                    if line[i + 1] == '>':
+                        self.attributes.add_attribute('href', word[1:])
                     else:
-                        self.attributes.add_attribute('id', word)
-                    i = j
-                elif line[i] == '>':
-                    i += 1
-                    if line[i] == '>':
-                        j = i + 2
-                        while j < len(line):
-                            if line[j].isspace() or line[j] == ']':
-                                break
-                            j += 1
-                        word = self.parse_value(line[i + 1:j])
-                        self.attributes.add_attribute('href', word)
-                        i = j
-                    else:
-                        j = i + 1
-                        while j < len(line):
-                            if line[j].isspace() or line[j] == ']':
-                                break
-                            j += 1
-                        word = self.parse_value(line[i:j])
                         self.attributes.add_attribute('xref', word)
-                        i = j
+                elif line[i] == '.':
+                    self.attributes.add_attribute('style', word)
                 else:
-                    j = i + 1
-                    while j < len(line) and _isnmtoken(line[j]):
-                        j += 1
-                    word = line[i:j]
-                    if line[j] == '=':
-                        if line[j + 1] in ('"', "'"):
-                            self._quote = line[j + 1]
-                            self._value = ''
-                            i = j + 2
-                            self._attrname = word
-                        else:
-                            k = j + 1
-                            while k < len(line):
-                                if line[k].isspace() or line[k] == ']':
-                                    break
-                                k += 1
-                            value = self.parse_value(line[j + 1:k])
-                            self.attributes.add_attribute(word, value)
-                            i = k
-                    elif line[j].isspace() or line[j] == ']':
-                        value = self.parse_value(line[i:j])
-                        self.attributes.add_attribute('type', value)
-                        i = j
-                        if line[j] == ']':
-                            pass
+                    self.attributes.add_attribute('id', word)
+                i = j
+            else:
+                j = i
+                while j < len(line) and _isnmtoken(line[j]):
+                    j += 1
+                word = line[i:j]
+                if line[j] == '=' and word != '':
+                    if line[j + 1] in ('"', "'"):
+                        self._quote = line[j + 1]
+                        self._value = ''
+                        i = j + 2
+                        self._attrname = word
                     else:
-                        raise SyntaxError()
+                        k = j + 1
+                        while k < len(line):
+                            if line[k].isspace() or line[k] == ']':
+                                break
+                            k += 1
+                        value = self.parse_value(line[j + 1:k])
+                        self.attributes.add_attribute(word, value)
+                        i = k
+                elif line[j].isspace() or line[j] == ']':
+                    value = self.parse_value(line[i:j])
+                    self.attributes.add_attribute('type', value)
+                    i = j
+                    if line[j] == ']':
+                        pass
+                else:
+                    raise SyntaxError('Invalid character in attribute list', self)
 
 
 class DuckParser:
@@ -445,6 +445,7 @@ class DuckParser:
         self.document = Block('page')
         self.current = self.document
         self.curinfo = None
+        self.linenum = 0
         self._value = ''
         self._attrparser = None
         self._defaultid = None
@@ -470,6 +471,7 @@ class DuckParser:
         return None
 
     def parse_file(self, filename):
+        self.filename = filename
         self._defaultid = os.path.basename(filename)
         if self._defaultid.endswith('.duck'):
             self._defaultid = self._defaultid[:-5]
@@ -479,6 +481,7 @@ class DuckParser:
         fd.close()
 
     def parse_line(self, line):
+        self.linenum += 1
         self._parse_line(line)
 
     def parse_inline(self, node=None):
@@ -487,7 +490,7 @@ class DuckParser:
         newchildren = []
         for child in node.children:
             if isinstance(child, str):
-                parser = InlineParser(self)
+                parser = InlineParser(self, linenum=node.linenum)
                 newchildren.extend(parser.parse_text(child))
             else:
                 self.parse_inline(child)
@@ -495,6 +498,9 @@ class DuckParser:
         node.children = newchildren
 
     def finish(self):
+        if (self.state in (DuckParser.STATE_HEADER_ATTR, DuckParser.STATE_BLOCK_ATTR) or
+            self.info_state == DuckParser.INFO_STATE_ATTR):
+            raise SyntaxError('Unterminated block declaration', self)
         self._push_value()
         if self._defaultid is not None:
             if self.document.attributes is None:
@@ -540,12 +546,12 @@ class DuckParser:
             pass
         elif line.startswith('= '):
             self._value = line[2:]
-            node = Block('title', 0, 2)
+            node = Block('title', 0, 2, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_HEADER
         else:
-            raise SyntaxError()
+            raise SyntaxError('Missing page header', self)
 
     def _parse_line_header(self, line):
         indent = self._get_indent(line)
@@ -567,7 +573,7 @@ class DuckParser:
     def _parse_line_header_post(self, line):
         if line.startswith(('-' * self.current.depth) + ' '):
             self._value = line[self.current.depth + 1:]
-            node = Block('subtitle', 0, self.current.depth + 1)
+            node = Block('subtitle', 0, self.current.depth + 1, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_SUBHEADER
@@ -664,7 +670,7 @@ class DuckParser:
 
         indent = self._get_indent(line)
         if self.current.info is None:
-            self.current.info = Block('info', indent)
+            self.current.info = Block('info', indent, indent, linenum=self.linenum)
             self.curinfo = self.current.info
         if indent < self.current.info.outer:
             self._push_value()
@@ -775,10 +781,10 @@ class DuckParser:
             while self.current.depth >= sectd:
                 self.current = self.current.parent
             if sectd != self.current.depth + 1:
-                raise SyntaxError()
-            section = Block('section')
+                raise SyntaxError('Incorrect section depth', self)
+            section = Block('section', linenum=self.linenum)
             self.current.add_child(section)
-            title = Block('title', 0, sectd + 1)
+            title = Block('title', 0, sectd + 1, linenum=self.linenum)
             section.add_child(title)
             self.current = title
             self._value = line[sectd + 1:]
@@ -831,7 +837,7 @@ class DuckParser:
                     break
                 self.current = self.current.parent
 
-            node = Block(name, indent)
+            node = Block(name, indent, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
 
@@ -857,7 +863,7 @@ class DuckParser:
                     not self.current.available and
                     self.current.outer == indent)):
                 self.current = self.current.parent
-            node = Block('p', indent)
+            node = Block('p', indent, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
             self._value += iline
@@ -869,7 +875,7 @@ class DuckParser:
         while ((not self.current.division) and
                (self.current.terminal or self.current.outer > indent)):
             self.current = self.current.parent
-        title = Block('title', indent, indent + 2)
+        title = Block('title', indent, indent + 2, linenum=self.linenum)
         self.current.add_child(title)
         self.current = title
         self._parse_line((' ' * self.current.inner) + iline[2:])
@@ -881,14 +887,14 @@ class DuckParser:
             self.current = self.current.parent
 
         if self.current.name == 'tr':
-            node = Block('th', indent, indent + 2)
+            node = Block('th', indent, indent + 2, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
             self._parse_line((' ' * node.inner) + iline[2:])
             return
 
         if self.current.name != 'terms':
-            node = Block('terms', indent)
+            node = Block('terms', indent, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
         # By now we've unwound to the terms element. If the preceding
@@ -903,10 +909,10 @@ class DuckParser:
                 and item.children[-1].name == 'title'):
                 self.current = item
         if self.current.name != 'item':
-            item = Block('item', indent, indent + 2)
+            item = Block('item', indent, indent + 2, linenum=self.linenum)
             self.current.add_child(item)
             self.current = item
-        title = Block('title', indent, indent + 2)
+        title = Block('title', indent, indent + 2, linenum=self.linenum)
         self.current.add_child(title)
         self.current = title
         self._parse_line((' ' * self.current.inner) + iline[2:])
@@ -918,7 +924,7 @@ class DuckParser:
             self.current = self.current.parent
 
         if self.current.name == 'tr':
-            node = Block('td', indent, indent + 2)
+            node = Block('td', indent, indent + 2, linenum=self.linenum)
             self.current.add_child(node)
             self.current = node
             self._parse_line((' ' * node.inner) + iline[2:])
@@ -926,20 +932,20 @@ class DuckParser:
             # All the logic above will have unraveled us from the item
             # created by the title, so we have to step back into it.
             if self.current.empty or self.current.children[-1].name != 'item':
-                raise SyntaxError()
+                raise SyntaxError('Missing item title in terms', self)
             self.current = self.current.children[-1]
             self._parse_line((' ' * self.current.inner) + iline[2:])
         elif self.current.name == 'tree':
             FIXME(self.current.name)
         elif self.current.name in ('list', 'steps'):
-            item = Block('item', indent, indent + 2)
+            item = Block('item', indent, indent + 2, linenum=self.linenum)
             self.current.add_child(item)
             self.current = item
             self._parse_line((' ' * item.inner) + iline[2:])
         else:
-            node = Block('list', indent)
+            node = Block('list', indent, linenum=self.linenum)
             self.current.add_child(node)
-            item = Block('item', indent, indent + 2)
+            item = Block('item', indent, indent + 2, linenum=self.linenum)
             node.add_child(item)
             self.current = item
             self._parse_line((' ' * item.inner) + iline[2:])
@@ -991,7 +997,12 @@ def _isnmtoken(c):
 
 if __name__ == '__main__':
     import sys
-    parser = DuckParser()
-    parser.parse_file(sys.argv[1])
-    parser.finish()
+    try:
+        parser = DuckParser()
+        parser.parse_file(sys.argv[1])
+        parser.finish()
+    except SyntaxError as e:
+        print(os.path.basename(e.filename) + ':' +
+              str(e.linenum) + ': ' + e.message)
+        sys.exit(1)
     parser.document.print()

@@ -1,0 +1,6 @@
+= Error Test
+
+This is a test of an $em[.bold
+style="strong
+$unknown;"
+](entity).

@@ -1,0 +1,7 @@
+= Error Test
+
+This is another test with $em[.bold
+.strong style="bold
+and strong"](an
+$unknown; entity)
+after some line breaks in attributes.
