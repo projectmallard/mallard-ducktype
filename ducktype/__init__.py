@@ -1,6 +1,7 @@
-import os.path
+import os
+import sys
 
-import entities
+from . import entities
 
 
 def FIXME(msg=None):
@@ -35,15 +36,14 @@ class Attributes:
     def __contains__(self, item):
         return item in self._attrlist
 
-    def print(self):
+    def _write_xml(self, fd):
         for attr in self._attrlist:
-            print(' ' + attr + '="', end='')
+            fd.write(' ' + attr + '="')
             if attr == 'style':
-                print(' '.join([_escape_xml_attr(s) for s in self._attrvals[attr]]),
-                      end='')
+                fd.write(' '.join([_escape_xml_attr(s) for s in self._attrvals[attr]]))
             else:
-                print(_escape_xml_attr(self._attrvals[attr]), end='')
-            print('"', end='')
+                fd.write(_escape_xml_attr(self._attrvals[attr]))
+            fd.write('"')
 
 
 class Node:
@@ -115,69 +115,69 @@ class Node:
         else:
             self.children.append(text)
 
-    def print(self, depth=0, verbatim=False):
+    def write_xml(self, outfile=None):
+        close = False
+        if outfile is None:
+            fd = sys.stdout
+        elif isinstance(outfile, str):
+            close = True
+            fd = open(outfile, 'w')
+        else:
+            fd = outfile
+        self._write_xml(fd)
+        if close:
+            fd.close()
+
+    def _write_xml(self, fd, *, depth=0, verbatim=False):
         verbatim = verbatim or self.verbatim
         if self.name == 'page':
-            print('<?xml version="1.0" encoding="utf-8"?>')
+            fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
         if not isinstance(self, Inline):
-            print((' ' * depth), end='')
-        print('<' + self.name, end='')
+            fd.write(' ' * depth)
+        fd.write('<' + self.name)
         if self.name == 'page':
-            print(' xmlns="http://projectmallard.org/1.0/"', end='')
+            fd.write(' xmlns="http://projectmallard.org/1.0/"')
         if self.attributes is not None:
-            self.attributes.print()
+            self.attributes._write_xml(fd)
         if self.empty:
             if isinstance(self, Inline):
-                print('/>', end='')
+                fd.write('/>')
             else:
-                print('/>')
+                fd.write('/>\n')
         elif isinstance(self.children[0], Block) or isinstance(self.children[0], Info):
-            print('>')
+            fd.write('>\n')
         else:
-            print('>', end='')
+            fd.write('>')
         if self.info is not None:
-            self.info.print(depth=depth+1)
+            self.info._write_xml(fd, depth=depth+1)
         for i in range(len(self.children)):
             child = self.children[i]
             if isinstance(child, Inline):
-                child.print(depth=depth, verbatim=verbatim)
+                child._write_xml(fd, depth=depth, verbatim=verbatim)
             elif isinstance(child, Node):
-                child.print(depth=depth+1, verbatim=verbatim)
+                child._write_xml(fd, depth=depth+1, verbatim=verbatim)
             elif '\n' in child:
                 nl = child.find('\n')
                 while nl >= 0:
                     if nl + 1 == len(child) and i + 1 == len(self.children):
-                        print(_escape_xml(child[:nl]), end='')
+                        fd.write(_escape_xml(child[:nl]))
                     elif verbatim or (nl + 1 < len(child) and child[nl + 1] == '\n'):
-                        print(_escape_xml(child[:nl]))
+                        fd.write(_escape_xml(child[:nl]) + '\n')
                     else:
-                        print(_escape_xml(child[:nl]) + '\n' + (' ' * depth), end='')
+                        fd.write(_escape_xml(child[:nl]) + '\n' + (' ' * depth))
                     child = child[nl + 1:]
                     nl = child.find('\n')
                 if child != '':
-                    print(_escape_xml(child), end='')
-                continue
-                print(child.replace('\n', '\n' + (' ' * depth) + ':'), end='')
-                continue
-                lines = child.split('\n')
-                while lines[-1] == '':
-                    lines.pop()
-                for j in range(len(lines)):
-                    line = lines[j]
-                    if not (i == 0 and j == 0) and not self.verbatim:
-                        line = (' ' * depth) + line
-                    if not (i + 1 == len(self.children) and j + 1 == len(lines)):
-                        line = line + ':\n'
-                    print(_escape_xml(line), end='')
+                    fd.write(_escape_xml(child))
             else:
-                print(child, end='')
+                fd.write(child)
         if not self.empty:
             if isinstance(self, Inline):
-                print('</' + self.name + '>', end='')
+                fd.write('</' + self.name + '>')
             elif self.terminal:
-                print('</' + self.name + '>')
+                fd.write('</' + self.name + '>\n')
             else:
-                print((' ' * depth) + '</' + self.name + '>')
+                fd.write((' ' * depth) + '</' + self.name + '>\n')
 
 
 class Block(Node):
@@ -1005,4 +1005,4 @@ if __name__ == '__main__':
         print(os.path.basename(e.filename) + ':' +
               str(e.linenum) + ': ' + e.message)
         sys.exit(1)
-    parser.document.print()
+    parser.document.write_xml(sys.stdout)
