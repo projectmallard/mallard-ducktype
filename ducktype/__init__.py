@@ -1013,16 +1013,3 @@ def _isnmtoken(c):
             (0x3001 <= i <= 0xD7FF) or (0xF900 <= i <= 0xFDCF) or
             (0xFDF0 <= i <= 0xFFFD) or (0x10000 <= i <= 0xEFFFF) or
             (0x0300 <= i <= 0x036F) or (0x203F <= i <= 0x2040))
-
-
-if __name__ == '__main__':
-    import sys
-    try:
-        parser = DuckParser()
-        parser.parse_file(sys.argv[1])
-        parser.finish()
-    except SyntaxError as e:
-        print(os.path.basename(e.filename) + ':' +
-              str(e.linenum) + ': ' + e.message)
-        sys.exit(1)
-    parser.document.write_xml(sys.stdout)

@@ -1,12 +1,13 @@
 #!/bin/sh
 
+export PYTHONPATH=..:$PYTHONPATH
 for duck in *.duck; do
     page=$(echo $duck | sed -e 's/\.duck$/.page/')
     error=$(echo $duck | sed -e 's/\.duck$/.error/')
     if [ -f "$page" ]; then
-        python3 ../ducktype/__init__.py $duck | cmp - $page || echo $duck
+        python3 runtest.py $duck | cmp - $page || echo $duck
     elif [ -f "$error" ]; then
-        python3 ../ducktype/__init__.py $duck | cmp - $error || echo $duck
+        python3 runtest.py $duck | cmp - $error || echo $duck
     else
         echo $duck;
     fi
