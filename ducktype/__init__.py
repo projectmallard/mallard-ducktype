@@ -190,7 +190,7 @@ class Node:
                 if child != '':
                     fd.write(_escape_xml(child))
             else:
-                fd.write(child)
+                fd.write(_escape_xml(child))
         if not self.empty:
             if isinstance(self, Inline):
                 fd.write('</' + self.name + '>')
@@ -441,17 +441,18 @@ class AttributeParser:
 
 class DuckParser:
     STATE_TOP = 1
-    STATE_HEADER = 2
-    STATE_HEADER_POST = 3
-    STATE_SUBHEADER = 4
-    STATE_SUBHEADER_POST = 5
-    STATE_HEADER_ATTR = 6
-    STATE_HEADER_ATTR_POST = 7
-    STATE_HEADER_INFO = 8
-    STATE_BLOCK = 9
-    STATE_BLOCK_ATTR = 10
-    STATE_BLOCK_READY = 11
-    STATE_BLOCK_INFO = 12
+    STATE_DIRECTIVE = 2
+    STATE_HEADER = 3
+    STATE_HEADER_POST = 4
+    STATE_SUBHEADER = 5
+    STATE_SUBHEADER_POST = 6
+    STATE_HEADER_ATTR = 7
+    STATE_HEADER_ATTR_POST = 8
+    STATE_HEADER_INFO = 9
+    STATE_BLOCK = 10
+    STATE_BLOCK_ATTR = 11
+    STATE_BLOCK_READY = 12
+    STATE_BLOCK_INFO = 13
 
     INFO_STATE_NONE = 101
     INFO_STATE_INFO = 102
@@ -540,6 +541,8 @@ class DuckParser:
             self._parse_line_info_attr(line)
         elif self.state == DuckParser.STATE_TOP:
             self._parse_line_top(line)
+        elif self.state == DuckParser.STATE_DIRECTIVE:
+            self._parse_line_directive(line)
         elif self.state == DuckParser.STATE_HEADER:
             self._parse_line_header(line)
         elif self.state == DuckParser.STATE_HEADER_POST:
@@ -564,6 +567,9 @@ class DuckParser:
     def _parse_line_top(self, line):
         if line.strip() == '':
             pass
+        elif line.startswith('[['):
+            self.state = DuckParser.STATE_DIRECTIVE
+            self._parse_line_directive(line[2:])
         elif line.startswith('= '):
             self._value = line[2:]
             node = Block('title', 0, 2, linenum=self.linenum)
@@ -572,6 +578,23 @@ class DuckParser:
             self.state = DuckParser.STATE_HEADER
         else:
             raise SyntaxError('Missing page header', self)
+
+    def _parse_line_directive(self, line):
+        start = cur = 0
+        while cur < len(line):
+            if cur == len(line) - 1:
+                cur += 1
+                self._value += line
+            elif line[cur] == '$' and line[cur + 1] in _escaped_chars:
+                cur += 2
+            elif line[cur:cur + 2] == ']]':
+                self._value += line[:cur]
+                # FIXME: do something with the directive
+                self._value = ''
+                self.state = DuckParser.STATE_TOP
+                break
+            else:
+                cur += 1
 
     def _parse_line_header(self, line):
         indent = self._get_indent(line)
