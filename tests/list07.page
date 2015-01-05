@@ -12,7 +12,7 @@
   </item>
   <item>
    <title>Term 3</title>
-   <p>Definition 3</p>
   </item>
  </terms>
+ <p>Not in the terms list because the newline breaks free of the item.</p>
 </page>

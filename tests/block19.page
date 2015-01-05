@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="block19">
+ <title>Block Test</title>
+ <links type="section"/>
+ <links type="topic" groups="#first">
+  <title>First</title>
+ </links>
+ <links type="topic"/>
+</page>

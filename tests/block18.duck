@@ -1,0 +1,5 @@
+= Block Test
+
+[media src="foo.png"]
+
+This paragraph is not in the media element.

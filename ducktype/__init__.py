@@ -799,7 +799,9 @@ class DuckParser:
     def _parse_line_block(self, line):
         # Blank lines close off elements that have inline content (terminal)
         # unless they're verbatim elements that have an inner indent. Only
-        # decreasing indent can break free of those.
+        # decreasing indent can break free of those. They also break out of
+        # unindented block container elements, except for a set of special
+        # elements that take lists of things instead of general blocks.
         if line.strip() == '':
             if self.current.terminal:
                 if (self.current.verbatim and
@@ -808,6 +810,16 @@ class DuckParser:
                 else:
                     self._push_value()
                     self.current = self.current.parent
+            while self.current.inner == self.current.outer:
+                if self.current.division:
+                    break
+                if self.current.name in ('list', 'steps', 'terms', 'tree'):
+                    break
+                if self.current.name in ('table', 'thead', 'tfoot', 'tbody', 'tr'):
+                    break
+                if self.current.terminal:
+                    self._push_value()
+                self.current = self.current.parent
             return
 
         sectd = 0

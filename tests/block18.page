@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="block18">
+ <title>Block Test</title>
+ <media src="foo.png"/>
+ <p>This paragraph is not in the media element.</p>
+</page>
