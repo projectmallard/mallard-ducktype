@@ -66,6 +66,20 @@ class Attributes:
             fd.write('"')
 
 
+class Directive:
+    def __init__(self, name):
+        self.name = name
+        self.values = []
+        self._dict = {}
+
+    def add_value(self, name, value=None):
+        if value is None:
+            self.values.append(name)
+        else:
+            self.values.append((name, value))
+            self._dict[name] = value
+
+
 class Node:
     def __init__(self, name, outer=0, inner=None, linenum=0):
         self.name = name
@@ -85,6 +99,7 @@ class Node:
                           'subtitle', 'desc', 'cite',
                           'name', 'email'))
         self.linenum = linenum
+        self._namespaces = []
         self._parent = None
         self._depth = 1
         self._softbreak = False # Help keep out pesky trailing newlines
@@ -135,6 +150,9 @@ class Node:
         else:
             self.children.append(text)
 
+    def add_namespace(self, prefix, uri):
+        self._namespaces.append((prefix, uri))
+
     def write_xml(self, outfile=None):
         close = False
         if outfile is None:
@@ -157,6 +175,8 @@ class Node:
         fd.write('<' + self.name)
         if self.name == 'page':
             fd.write(' xmlns="http://projectmallard.org/1.0/"')
+        for prefix, uri in self._namespaces:
+            fd.write(' xmlns:' + prefix + '="' + uri + '"')
         if self.attributes is not None:
             self.attributes._write_xml(fd)
         if self.empty:
@@ -433,15 +453,105 @@ class AttributeParser:
                     value = self.parse_value(line[i:j])
                     self.attributes.add_attribute('type', value)
                     i = j
-                    if line[j] == ']':
-                        pass
                 else:
                     raise SyntaxError('Invalid character in attribute list', self)
 
 
+class DirectiveParser:
+    def __init__(self, parent):
+        self.remainder = None
+        self.finished = False
+        self.filename = parent.filename
+        self.linenum = parent.linenum
+        self.directive = None
+        self._quote = None
+        self._value = ''
+        self._attrname = None
+        self._parent = parent
+
+    def parse_line(self, line):
+        i = 0
+        if self.directive is None:
+            i = 2
+            while i < len(line):
+                if line[i].isspace():
+                    break
+                if line[i:i + 2] == ']]':
+                    self.finished = True
+                    self.remainder = line[i + 2:]
+                    break
+                i += 1
+            if i == 2:
+                raise SyntaxError('Directive must start with a name', self)
+            self.directive = Directive(line[2:i])
+        while i < len(line) and not self.finished:
+            if self._quote is not None:
+                j = i
+                while j < len(line):
+                    if line[j] == '$':
+                        # Will be parsed later. Just skip the escaped quote
+                        # char so it doesn't close the attribute value.
+                        if j + 1 < len(line) and line[j] in _escaped_chars:
+                            j += 2
+                        else:
+                            j += 1
+                    elif line[j] == self._quote:
+                        self._value += line[i:j]
+                        if self._attrname is not None:
+                            self.directive.add_value(self._attrname, self._value)
+                        else:
+                            self.directive.add_value(self._value)
+                        self._attrname = None
+                        self._value = ''
+                        self._quote = None
+                        i = j
+                        break
+                    else:
+                        j += 1
+                i += 1
+            elif line[i].isspace():
+                if line[i] == '\n':
+                    self.linenum += 1
+                i += 1
+            elif line[i:i + 2] == ']]':
+                self.finished = True
+                self.remainder = line[i + 2:]
+            else:
+                j = i
+                while j < len(line) and not self.finished:
+                    if line[j:j + 2] in ('="', "='"):
+                        self._quote = line[j + 1]
+                        self._value = ''
+                        self._attrname = line[i:j]
+                        i = j + 2
+                        break
+                    elif line[j] == '=':
+                        k = j + 1
+                        while k < len(line):
+                            if line[k].isspace():
+                                break
+                            if line[k:k + 2] == ']]':
+                                self.finished = True
+                                self.remainder = line[k + 2:]
+                                break
+                            k += 1
+                        self.directive.add_value(line[i:j], line[j + 1:k])
+                        i = k
+                        break
+                    elif line[j:j + 2] == ']]':
+                        self.finished = True
+                        self.remainder = line[j + 2:]
+                        self.directive.add_value(line[i:j])
+                    elif line[j].isspace() :
+                        self.directive.add_value(line[i:j])
+                        i = j
+                        break
+                    j += 1
+
+
 class DuckParser:
-    STATE_TOP = 1
-    STATE_DIRECTIVE = 2
+    STATE_START = 1
+    STATE_TOP = 2
     STATE_HEADER = 3
     STATE_HEADER_POST = 4
     STATE_SUBHEADER = 5
@@ -461,7 +571,7 @@ class DuckParser:
     INFO_STATE_ATTR = 105
 
     def __init__(self):
-        self.state = DuckParser.STATE_TOP
+        self.state = DuckParser.STATE_START
         self.info_state = DuckParser.INFO_STATE_NONE
         self.document = Block('page')
         self.current = self.document
@@ -469,6 +579,7 @@ class DuckParser:
         self.linenum = 0
         self._value = ''
         self._attrparser = None
+        self._directiveparser = None
         self._defaultid = None
 
     def lookup_entity(self, entity):
@@ -531,7 +642,9 @@ class DuckParser:
         self.parse_inline()
 
     def _parse_line(self, line):
-        if self.info_state == DuckParser.INFO_STATE_INFO:
+        if self._directiveparser is not None:
+            self._parse_line_directive(line)
+        elif self.info_state == DuckParser.INFO_STATE_INFO:
             self._parse_line_info(line)
         elif self.info_state == DuckParser.INFO_STATE_READY:
             self._parse_line_info(line)
@@ -539,10 +652,10 @@ class DuckParser:
             self._parse_line_info(line)
         elif self.info_state == DuckParser.INFO_STATE_ATTR:
             self._parse_line_info_attr(line)
+        elif self.state == DuckParser.STATE_START:
+            self._parse_line_top(line)
         elif self.state == DuckParser.STATE_TOP:
             self._parse_line_top(line)
-        elif self.state == DuckParser.STATE_DIRECTIVE:
-            self._parse_line_directive(line)
         elif self.state == DuckParser.STATE_HEADER:
             self._parse_line_header(line)
         elif self.state == DuckParser.STATE_HEADER_POST:
@@ -566,10 +679,10 @@ class DuckParser:
 
     def _parse_line_top(self, line):
         if line.strip() == '':
-            pass
+            self.state = DuckParser.STATE_TOP
         elif line.startswith('[['):
-            self.state = DuckParser.STATE_DIRECTIVE
-            self._parse_line_directive(line[2:])
+            self._directiveparser = DirectiveParser(self)
+            self._parse_line_directive(line)
         elif line.startswith('= '):
             self._value = line[2:]
             node = Block('title', 0, 2, linenum=self.linenum)
@@ -580,21 +693,40 @@ class DuckParser:
             raise SyntaxError('Missing page header', self)
 
     def _parse_line_directive(self, line):
-        start = cur = 0
-        while cur < len(line):
-            if cur == len(line) - 1:
-                cur += 1
-                self._value += line
-            elif line[cur] == '$' and line[cur + 1] in _escaped_chars:
-                cur += 2
-            elif line[cur:cur + 2] == ']]':
-                self._value += line[:cur]
-                # FIXME: do something with the directive
-                self._value = ''
-                self.state = DuckParser.STATE_TOP
-                break
+        self._directiveparser.parse_line(line)
+        if self._directiveparser.finished:
+            directive = self._directiveparser.directive
+            self._directiveparser = None
+            if directive.name.startswith('duck/'):
+                if self.state != DuckParser.STATE_START:
+                    raise SyntaxError('Ducktype declaration must be first', self)
+                if directive.name != 'duck/1.0':
+                    raise SyntaxError(
+                        'Unsupported ducktype version ' + directive.name ,
+                        self)
+                for value in directive.values:
+                    if isinstance(value, str):
+                        raise SyntaxError(
+                            'Unsupported ducktype extension ' + value,
+                            self)
+                    elif value[0] == 'encoding':
+                        FIXME('encoding')
+                    else:
+                        raise SyntaxError(
+                            'Unsupported ducktype extension ' + value[0],
+                            self)
+            elif directive.name == 'duck:ns':
+                for value in directive.values:
+                    if isinstance(value, str):
+                        raise SyntaxError(
+                            'Non-attribute value in namespace declaration',
+                            self)
+                    self.current.add_namespace(value[0], value[1])
             else:
-                cur += 1
+                # FIXME: unknown directive
+                pass
+            if self.state == DuckParser.STATE_START:
+                self.state == DuckParser.STATE_TOP
 
     def _parse_line_header(self, line):
         indent = self._get_indent(line)

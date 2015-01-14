@@ -1,0 +1,7 @@
+[[duck/1.0]]
+[[duck:ns
+if="http://projectmallard.org/if/1.0/"]]
+
+= Directive Test
+
+This is a test of directives.
