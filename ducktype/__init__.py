@@ -962,7 +962,7 @@ class DuckParser:
             if i < len(line) and line[i] == ' ':
                 sectd = i
         if sectd > 0:
-            self._push_value
+            self._push_value()
             while not self.current.division:
                 self.current = self.current.parent
             while self.current.depth >= sectd:
