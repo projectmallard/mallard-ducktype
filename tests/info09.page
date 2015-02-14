@@ -3,8 +3,8 @@
  <info>
   <license>
    <p>This is the license.</p>
+   <p>This is still the license.</p>
   </license>
  </info>
  <title>Info Test</title>
- <p>This is not the license.</p>
 </page>

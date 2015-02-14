@@ -106,7 +106,7 @@ class Node:
 
     @property
     def empty(self):
-        return len(self.children) == 0
+        return len(self.children) == 0 and self.info is None
 
     @property
     def available(self):
@@ -184,7 +184,9 @@ class Node:
                 fd.write('/>')
             else:
                 fd.write('/>\n')
-        elif isinstance(self.children[0], Block) or isinstance(self.children[0], Info):
+        elif (self.info is not None or
+              isinstance(self.children[0], Block) or
+              isinstance(self.children[0], Info) ):
             fd.write('>\n')
         else:
             fd.write('>')
@@ -821,8 +823,10 @@ class DuckParser:
     def _parse_line_info(self, line):
         if line.strip() == '':
             # If the info elements weren't indented past the indent
-            # level of the parent, blank line terminates info.
-            if self.current.outer == self.current.info.outer:
+            # level of the parent and the parent is a block, blank
+            # line terminates info, because it must terminate the
+            # block according to block processing rules.
+            if (self.current.outer == self.current.inner and not self.current.division):
                 self._push_value()
                 self.info_state = DuckParser.INFO_STATE_NONE
                 self._parse_line(line)
@@ -838,7 +842,7 @@ class DuckParser:
                     self._push_value()
                     self.curinfo = self.curinfo.parent
                     self.info_state = DuckParser.INFO_STATE_INFO
-            else:
+            elif self.curinfo.inner == self.curinfo.outer:
                 self.curinfo = self.curinfo.parent
                 self.info_state = DuckParser.INFO_STATE_INFO
             return
@@ -898,17 +902,18 @@ class DuckParser:
                 self.info_state = DuckParser.INFO_STATE_READY
 
     def _parse_line_info_block(self, iline, indent):
-        # First line after an @info declaration? Set inner indent.
-        if self.info_state == DuckParser.INFO_STATE_READY:
-            self.curinfo.inner = indent
-            self.info_state = DuckParser.INFO_STATE_BLOCK
-
         if indent < self.curinfo.inner:
             self._push_value()
             while indent < self.curinfo.inner:
                 if self.curinfo == self.current.info:
                     break
                 self.curinfo = self.curinfo.parent
+
+        # First line after an @info declaration? Set inner indent.
+        if self.info_state == DuckParser.INFO_STATE_READY:
+            self.curinfo.inner = indent
+            self.info_state = DuckParser.INFO_STATE_BLOCK
+
         self.info_state = DuckParser.INFO_STATE_BLOCK
 
         if not self.curinfo.terminal:
@@ -1151,6 +1156,8 @@ class DuckParser:
                    (self.current.outer > indent)):
                 self.current = self.current.parent
         else:
+            if line.lstrip().startswith('@'):
+                self.info_state = DuckParser.INFO_STATE_INFO
             self.current.inner = self._get_indent(line)
         self.state = DuckParser.STATE_BLOCK
         self._parse_line(line)
