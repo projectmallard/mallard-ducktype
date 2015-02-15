@@ -1,0 +1,10 @@
+= Info Test
+
+[figure]
+  @license
+    This is the figure lincense.
+
+    @screen
+      This is a screen in a figure license.
+
+      This is still in the screen.

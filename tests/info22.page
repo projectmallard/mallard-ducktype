@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="info22">
+ <title>Info Test</title>
+ <figure>
+  <info>
+   <license>
+    <p>This is the figure lincense.</p>
+    <screen>This is a screen in a figure license.</screen>
+    <p>This is no longer in the screen.</p>
+   </license>
+  </info>
+ </figure>
+</page>
