@@ -842,9 +842,6 @@ class DuckParser:
                     self._push_value()
                     self.curinfo = self.curinfo.parent
                     self.info_state = DuckParser.INFO_STATE_INFO
-            elif self.curinfo.inner == self.curinfo.outer:
-                self.curinfo = self.curinfo.parent
-                self.info_state = DuckParser.INFO_STATE_INFO
             return
 
         indent = self._get_indent(line)
@@ -902,12 +899,29 @@ class DuckParser:
                 self.info_state = DuckParser.INFO_STATE_READY
 
     def _parse_line_info_block(self, iline, indent):
-        if indent < self.curinfo.inner:
-            self._push_value()
-            while indent < self.curinfo.inner:
-                if self.curinfo == self.current.info:
-                    break
+        # If we're already inside a leaf element, we only break out
+        # if the indent is less than the inner indent. For example:
+        # @p
+        # Inside of p
+        if self.curinfo.terminal:
+            if indent < self.curinfo.inner:
+                self._push_value()
                 self.curinfo = self.curinfo.parent
+        # If we're not in a leaf, we need to create an implicit
+        # info paragraph, but only after breatking out to the
+        # level of the outer indent. For example:
+        # @foo
+        # Not inside of foo, and in implicit p
+        else:
+            if indent <= self.curinfo.outer:
+                self._push_value()
+                while indent <= self.curinfo.outer:
+                    if self.curinfo == self.current.info:
+                        break
+                    self.curinfo = self.curinfo.parent
+            node = Info('p', indent)
+            self.curinfo.add_child(node)
+            self.curinfo = node
 
         # First line after an @info declaration? Set inner indent.
         if self.info_state == DuckParser.INFO_STATE_READY:
@@ -916,10 +930,6 @@ class DuckParser:
 
         self.info_state = DuckParser.INFO_STATE_BLOCK
 
-        if not self.curinfo.terminal:
-            node = Info('p', indent)
-            self.curinfo.add_child(node)
-            self.curinfo = node
         self._value += iline
 
     def _parse_line_info_attr(self, line):
