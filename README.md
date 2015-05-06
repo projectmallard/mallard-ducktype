@@ -15,5 +15,5 @@ Or to get the latest version uploaded to pypi:
 ```
 virtualenv --python=python3 venv
 source venv/bin/activate
-pip-python3 install ducktype
+pip-python3 install mallard-ducktype
 ```
