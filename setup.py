@@ -1,10 +1,10 @@
 from setuptools import setup
 
 setup(
-    name='duck',
+    name='mallard-ducktype',
     version='0.1',
     description='Parse Ducktype files and convert them to Mallard.',
-    packages=['ducktype'],
+    packages=['mallard.ducktype'],
     scripts=['bin/ducktype'],
     author='Shaun McCance',
     author_email='shaunm@gnome.org',
