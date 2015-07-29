@@ -739,8 +739,10 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
-        elif indent >= self.current.inner:
+        elif indent >= 0 and iline.startswith('['):
             self._parse_line_header_attr_start(line)
+        elif indent >= self.current.inner:
+            self._value += line[self.current.inner:]
         else:
             self._push_value()
             self.current = self.current.parent
@@ -771,8 +773,10 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
-        elif indent >= self.current.inner:
+        elif indent >= 0 and iline.startswith('['):
             self._parse_line_header_attr_start(line)
+        elif indent >= self.current.inner:
+            self._value += line[self.current.inner:]
         else:
             self._push_value()
             self.current = self.current.parent
@@ -789,12 +793,12 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_header_attr_start(self, line):
-        iline = line[self.current.inner:]
-        if iline.startswith('['):
+        indent = self._get_indent(line)
+        if indent > 0 and line[indent:].startswith('['):
             self._push_value()
             self.current = self.current.parent
             self._attrparser = AttributeParser(self)
-            self._attrparser.parse_line(iline[1:])
+            self._attrparser.parse_line(line[indent + 1:])
             if self._attrparser.finished:
                 self.current.attributes = self._attrparser.attributes
                 self.state = DuckParser.STATE_HEADER_ATTR_POST
@@ -802,7 +806,10 @@ class DuckParser:
             else:
                 self.state = DuckParser.STATE_HEADER_ATTR
         else:
-            self._value += line[self.current.inner:]
+            self._push_value()
+            self.current = self.current.parent
+            self.state = DuckParser.STATE_HEADER_ATTR_POST
+            self._parse_line(line)
 
     def _parse_line_header_attr(self, line):
         self._attrparser.parse_line(line)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="info24">
+ <info>
+  <license>
+   <p>This is the license.
+   This is the same license paragraph.</p>
+   <media src="foo.png"/>
+   <media src="foo.png"/>
+   <p>This is a new paragraph in a license.</p>
+  </license>
+ </info>
+ <title>Info Test</title>
+ <p>This is not the license.</p>
+</page>

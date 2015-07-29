@@ -1,0 +1,11 @@
+= Info Test
+  @license
+    This is the license.
+    This is the same license paragraph.
+
+    @media[src=foo.png]
+    @media[src=foo.png]
+
+    This is a new paragraph in a license.
+
+  This is not the license.
