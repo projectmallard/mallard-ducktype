@@ -261,12 +261,21 @@ class InlineParser:
 
     def _parse_text(self, text):
         start = cur = 0
+        parens = []
         while cur < len(text):
             if self.current.parent is not None and text[cur] == ')':
-                self.current.add_text(text[start:cur])
-                self.current = self.current.parent
+                if len(parens) > 0 and parens[-1] > 0:
+                    parens[-1] -= 1
+                    cur += 1
+                else:
+                    self.current.add_text(text[start:cur])
+                    self.current = self.current.parent
+                    parens.pop()
+                    cur += 1
+                    start = cur
+            elif self.current.parent is not None and text[cur] == '(':
+                parens[-1] += 1
                 cur += 1
-                start = cur
             elif cur == len(text) - 1:
                 cur += 1
                 self.current.add_text(text[start:cur])
@@ -310,12 +319,14 @@ class InlineParser:
                     start = cur = len(text) - len(attrparser.remainder)
                     if cur < len(text) and text[cur] == '(':
                         self.current = node
+                        parens.append(0)
                         start = cur = cur + 1
                 elif text[end] == '(':
                     self.current.add_text(text[start:cur])
                     node = Inline(text[cur + 1:end])
                     self.current.add_child(node)
                     self.current = node
+                    parens.append(0)
                     start = cur = end + 1
                 else:
                     cur = end

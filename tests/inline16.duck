@@ -1,0 +1,5 @@
+= Inline Test
+
+Testing nested parenthesis with $gui(File(s)) (and $gui(File)).
+
+This is ($em(more $em((complicated) stuff)).)

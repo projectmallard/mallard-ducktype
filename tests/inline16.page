@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="inline16">
+ <title>Inline Test</title>
+ <p>Testing nested parenthesis with <gui>File(s)</gui> (and <gui>File</gui>).</p>
+ <p>This is (<em>more <em>(complicated) stuff</em></em>.)</p>
+</page>
