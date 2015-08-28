@@ -1,0 +1,7 @@
+[[duck/1.0]]
+[[def
+foo="bar"]]
+
+= Definition Test
+
+This should be bar: $foo;.

@@ -1,0 +1,8 @@
+[[duck/1.0]]
+[[def hi="$hello; world"
+      hello="hello"
+]]
+
+= Definition Test
+
+This should be hello world: $hi;.

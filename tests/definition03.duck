@@ -1,0 +1,11 @@
+[[duck/1.0]]
+[[def
+  foo1="bar
+" foo2="baz
+"
+]]
+
+= Definition Test
+
+[code]
+This should be bar\nbaz\n: $foo1;$foo2;.

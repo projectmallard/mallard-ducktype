@@ -1,0 +1,12 @@
+[[duck/1.0]]
+[[def foo="bar"]]
+
+= Definition Test
+
+The style attribute should be $em[style="$foo;"](bar).
+
+The style attribute should be $em[style='$foo;'](bar).
+
+The style attribute should be $em[style=$foo;](bar).
+
+The style attribute should be $em[.$foo;](bar).

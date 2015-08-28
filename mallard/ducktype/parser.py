@@ -100,6 +100,7 @@ class Node:
                           'name', 'email'))
         self.linenum = linenum
         self._namespaces = []
+        self._definitions = {}
         self._parent = None
         self._depth = 1
         self._softbreak = False # Help keep out pesky trailing newlines
@@ -138,11 +139,17 @@ class Node:
         self.children.append(child)
         child.parent = self
 
-    def add_text(self, text):
+    def add_text(self, text, raw=False):
+        # We don't add newlines when we see them. Instead, we record that
+        # we saw one with _softbreak and output the newline if we add
+        # something afterwards. This prevents pesky trailing newlines on
+        # text in block elements. When parsing things like external defs,
+        # though, we don't collapse trailing newlines. That's what the
+        # raw param is for.
         if self._softbreak:
             self.children[-1] += '\n'
             self._softbreak = False
-        if text.endswith('\n'):
+        if not raw and text.endswith('\n'):
             text = text[:-1]
             self._softbreak = True
         if len(self.children) > 0 and isinstance(self.children[-1], str):
@@ -152,6 +159,9 @@ class Node:
 
     def add_namespace(self, prefix, uri):
         self._namespaces.append((prefix, uri))
+
+    def add_definition(self, name, value):
+        self._definitions[name] = value
 
     def write_xml(self, outfile=None):
         close = False
@@ -243,12 +253,13 @@ class SyntaxError(Exception):
 
 
 class InlineParser:
-    def __init__(self, parent, linenum=1):
+    def __init__(self, parent, linenum=1, raw=False):
         # Dummy node just to hold children while we parse
         self.current = Inline('_')
         self.filename = parent.filename
         self.linenum = linenum
         self._parent = parent
+        self._raw = raw
 
     def lookup_entity(self, entity):
         return self._parent.lookup_entity(entity)
@@ -268,7 +279,7 @@ class InlineParser:
                     parens[-1] -= 1
                     cur += 1
                 else:
-                    self.current.add_text(text[start:cur])
+                    self.current.add_text(text[start:cur], raw=self._raw)
                     self.current = self.current.parent
                     parens.pop()
                     cur += 1
@@ -278,10 +289,10 @@ class InlineParser:
                 cur += 1
             elif cur == len(text) - 1:
                 cur += 1
-                self.current.add_text(text[start:cur])
+                self.current.add_text(text[start:cur], raw=self._raw)
             elif text[cur] == '$' and text[cur + 1] in _escaped_chars:
-                self.current.add_text(text[start:cur])
-                self.current.add_text(text[cur + 1])
+                self.current.add_text(text[start:cur], raw=self._raw)
+                self.current.add_text(text[cur + 1], raw=self._raw)
                 cur += 2
                 start = cur
             elif text[cur] == '$' and _isnmtoken(text[cur + 1]):
@@ -291,19 +302,26 @@ class InlineParser:
                         break
                     end += 1
                 if end == len(text):
-                    self.current.add_text(text[start:end])
+                    self.current.add_text(text[start:end], raw=self._raw)
                     cur = end
                 elif text[end] == ';':
-                    self.current.add_text(text[start:cur])
+                    self.current.add_text(text[start:cur], raw=self._raw)
                     entname = text[cur + 1:end]
                     entval = self._parent.lookup_entity(entname)
                     if entval is not None:
-                        self.current.add_text(entval)
+                        parser = InlineParser(self,
+                                              linenum=self.current.linenum,
+                                              raw=True)
+                        for child in parser.parse_text(entval):
+                            if isinstance(child, str):
+                                self.current.add_text(child, raw=True)
+                            else:
+                                self.current.add_child(child)
                     else:
                         raise SyntaxError('Unrecognized entity: ' + entname, self)
                     start = cur = end + 1
                 elif text[end] == '[':
-                    self.current.add_text(text[start:cur])
+                    self.current.add_text(text[start:cur], raw=self._raw)
                     node = Inline(text[cur + 1:end])
                     self.current.add_child(node)
                     attrparser = AttributeParser(self)
@@ -322,7 +340,7 @@ class InlineParser:
                         parens.append(0)
                         start = cur = cur + 1
                 elif text[end] == '(':
-                    self.current.add_text(text[start:cur])
+                    self.current.add_text(text[start:cur], raw=self._raw)
                     node = Inline(text[cur + 1:end])
                     self.current.add_child(node)
                     self.current = node
@@ -348,6 +366,9 @@ class AttributeParser:
         self._value = ''
         self._attrname = None
         self._parent = parent
+
+    def lookup_entity(self, entity):
+        return self._parent.lookup_entity(entity)
 
     def parse_value(self, text):
         retval = ''
@@ -376,9 +397,10 @@ class AttributeParser:
                         retval += text[start:cur]
                         start = cur
                         entname = text[cur + 1:end]
-                        entval = self._parent.lookup_entity(entname)
+                        entval = self.lookup_entity(entname)
                         if entval is not None:
-                            retval += entval
+                            parser = AttributeParser(self)
+                            retval += parser.parse_value(entval)
                         else:
                             raise SyntaxError('Unrecognized entity: ' + entname, self)
                         start = cur = end + 1
@@ -417,7 +439,9 @@ class AttributeParser:
                         break
                     else:
                         j += 1
-                i += 1
+                if self._quote is not None:
+                    self._value += line[i:j]
+                i = j + 1
             elif line[i].isspace():
                 if line[i] == '\n':
                     self.linenum += 1
@@ -521,7 +545,9 @@ class DirectiveParser:
                         break
                     else:
                         j += 1
-                i += 1
+                if self._quote is not None:
+                    self._value += line[i:j]
+                i = j + 1
             elif line[i].isspace():
                 if line[i] == '\n':
                     self.linenum += 1
@@ -596,6 +622,11 @@ class DuckParser:
         self._defaultid = None
 
     def lookup_entity(self, entity):
+        cur = self.current
+        while cur is not None:
+            if entity in cur._definitions:
+                return cur._definitions[entity]
+            cur = cur.parent
         if entity in entities.entities:
             return entities.entities[entity]
         else:
@@ -735,6 +766,13 @@ class DuckParser:
                             'Non-attribute value in namespace declaration',
                             self)
                     self.current.add_namespace(value[0], value[1])
+            elif directive.name == 'def':
+                for value in directive.values:
+                    if isinstance(value, str):
+                        raise SyntaxError(
+                            'Non-attribute value in namespace declaration',
+                            self)
+                    self.current.add_definition(value[0], value[1])
             else:
                 # FIXME: unknown directive
                 pass

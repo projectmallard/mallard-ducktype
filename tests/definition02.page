@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="definition02">
+ <title>Definition Test</title>
+ <p>This should be bar\nbaz\n: bar
+ baz
+ .</p>
+</page>

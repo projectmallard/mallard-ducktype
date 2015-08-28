@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="definition08">
+ <title>Definition Test</title>
+ <p>The style attribute should be <em style="fum">fum</em>.</p>
+ <p>The style attribute should be <em style="fum">fum</em>.</p>
+ <p>The style attribute should be <em style="fum">fum</em>.</p>
+ <p>The style attribute should be <em style="fum">fum</em>.</p>
+</page>
