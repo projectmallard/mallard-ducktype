@@ -759,7 +759,7 @@ class DuckParser:
                         raise SyntaxError(
                             'Unsupported ducktype extension ' + value[0],
                             self)
-            elif directive.name == 'duck:ns':
+            elif directive.name == 'ns':
                 for value in directive.values:
                     if isinstance(value, str):
                         raise SyntaxError(
