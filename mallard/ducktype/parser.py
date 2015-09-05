@@ -741,10 +741,10 @@ class DuckParser:
         if self._directiveparser.finished:
             directive = self._directiveparser.directive
             self._directiveparser = None
-            if directive.name.startswith('duck/'):
+            if directive.name.startswith('ducktype/'):
                 if self.state != DuckParser.STATE_START:
                     raise SyntaxError('Ducktype declaration must be first', self)
-                if directive.name != 'duck/1.0':
+                if directive.name != 'ducktype/1.0':
                     raise SyntaxError(
                         'Unsupported ducktype version ' + directive.name ,
                         self)
