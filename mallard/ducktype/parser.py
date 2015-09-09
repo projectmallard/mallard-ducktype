@@ -169,7 +169,7 @@ class Node:
             fd = sys.stdout
         elif isinstance(outfile, str):
             close = True
-            fd = open(outfile, 'w')
+            fd = open(outfile, 'w', encoding='utf-8')
         else:
             fd = outfile
         self._write_xml(fd)
@@ -651,7 +651,7 @@ class DuckParser:
         self._defaultid = os.path.basename(filename)
         if self._defaultid.endswith('.duck'):
             self._defaultid = self._defaultid[:-5]
-        fd = open(filename)
+        fd = open(filename, encoding='utf-8')
         for line in fd:
             self.parse_line(line)
         fd.close()
