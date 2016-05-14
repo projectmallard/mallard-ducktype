@@ -1,1 +1,1 @@
-error19.duck:3: Non-attribute value in namespace declaration
+error19.duck:2: Namespace declaration takes exactly two values

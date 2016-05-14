@@ -1,6 +1,6 @@
-[[directive]]
+@foo=bar
 
-[[ducktype/1.0]]
+@ducktype/1.0
 
 = Error Test
 

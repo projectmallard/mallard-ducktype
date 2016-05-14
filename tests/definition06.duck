@@ -1,5 +1,5 @@
-[[ducktype/1.0]]
-[[def foo="bar"]]
+@ducktype/1.0
+@define foo "bar"
 
 = Definition Test
 

@@ -1,8 +1,7 @@
-[[ducktype/1.0]]
-[[def foo="$fe; $fi;"
-      fe='fo'
-      fi=fum
-]]
+@ducktype/1.0
+@define foo "$fe; $fi;"
+@define fe 'fo'
+@define fi fum
 
 = Definition Test
 

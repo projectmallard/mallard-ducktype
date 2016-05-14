@@ -70,14 +70,9 @@ class Directive:
     def __init__(self, name):
         self.name = name
         self.values = []
-        self._dict = {}
 
-    def add_value(self, name, value=None):
-        if value is None:
-            self.values.append(name)
-        else:
-            self.values.append((name, value))
-            self._dict[name] = value
+    def add_value(self, value):
+        self.values.append(value)
 
 
 class Node:
@@ -501,28 +496,41 @@ class DirectiveParser:
         self.filename = parent.filename
         self.linenum = parent.linenum
         self.directive = None
-        self._quote = None
         self._value = ''
-        self._attrname = None
+        self._quote = None
         self._parent = parent
 
     def parse_line(self, line):
         i = 0
         if self.directive is None:
-            i = 2
+            i = 1
             while i < len(line):
                 if line[i].isspace():
                     break
-                if line[i:i + 2] == ']]':
-                    self.finished = True
-                    self.remainder = line[i + 2:]
-                    break
                 i += 1
-            if i == 2:
+            if i == 1:
                 raise SyntaxError('Directive must start with a name', self)
-            self.directive = Directive(line[2:i])
+            self.directive = Directive(line[1:i])
+            i += 1
         while i < len(line) and not self.finished:
-            if self._quote is not None:
+            if self._quote is None:
+                while i < len(line) and line[i].isspace():
+                    i += 1
+                if i >= len(line):
+                    break
+                j = i
+                if line[i] in ('"', "'"):
+                    self._quote = line[i]
+                    self._value = ''
+                    i += 1
+                    continue
+                while j < len(line):
+                    if line[j].isspace():
+                        self.directive.add_value(line[i:j])
+                        i = j + 1
+                        break
+                    j += 1
+            else: # in a quoted value
                 j = i
                 while j < len(line):
                     if line[j] == '$':
@@ -532,60 +540,22 @@ class DirectiveParser:
                             j += 2
                         else:
                             j += 1
+                    elif line[j] == '\n':
+                        self._value += line[i:]
+                        i = j + 1
+                        break
                     elif line[j] == self._quote:
                         self._value += line[i:j]
-                        if self._attrname is not None:
-                            self.directive.add_value(self._attrname, self._value)
-                        else:
-                            self.directive.add_value(self._value)
-                        self._attrname = None
+                        self.directive.add_value(self._value)
                         self._value = ''
                         self._quote = None
-                        i = j
+                        i = j + 1
                         break
                     else:
                         j += 1
-                if self._quote is not None:
-                    self._value += line[i:j]
-                i = j + 1
-            elif line[i].isspace():
-                if line[i] == '\n':
-                    self.linenum += 1
-                i += 1
-            elif line[i:i + 2] == ']]':
-                self.finished = True
-                self.remainder = line[i + 2:]
-            else:
-                j = i
-                while j < len(line) and not self.finished:
-                    if line[j:j + 2] in ('="', "='"):
-                        self._quote = line[j + 1]
-                        self._value = ''
-                        self._attrname = line[i:j]
-                        i = j + 2
-                        break
-                    elif line[j] == '=':
-                        k = j + 1
-                        while k < len(line):
-                            if line[k].isspace():
-                                break
-                            if line[k:k + 2] == ']]':
-                                self.finished = True
-                                self.remainder = line[k + 2:]
-                                break
-                            k += 1
-                        self.directive.add_value(line[i:j], line[j + 1:k])
-                        i = k
-                        break
-                    elif line[j:j + 2] == ']]':
-                        self.finished = True
-                        self.remainder = line[j + 2:]
-                        self.directive.add_value(line[i:j])
-                    elif line[j].isspace() :
-                        self.directive.add_value(line[i:j])
-                        i = j
-                        break
-                    j += 1
+        if self._quote is None:
+            self.finished = True
+        return
 
 
 class DuckParser:
@@ -724,7 +694,7 @@ class DuckParser:
     def _parse_line_top(self, line):
         if line.strip() == '':
             self.state = DuckParser.STATE_TOP
-        elif line.startswith('[['):
+        elif line.startswith('@'):
             self._directiveparser = DirectiveParser(self)
             self._parse_line_directive(line)
         elif line.startswith('= '):
@@ -749,30 +719,23 @@ class DuckParser:
                         'Unsupported ducktype version ' + directive.name ,
                         self)
                 for value in directive.values:
-                    if isinstance(value, str):
-                        raise SyntaxError(
-                            'Unsupported ducktype extension ' + value,
-                            self)
-                    elif value[0] == 'encoding':
-                        FIXME('encoding')
-                    else:
-                        raise SyntaxError(
-                            'Unsupported ducktype extension ' + value[0],
-                            self)
-            elif directive.name == 'ns':
-                for value in directive.values:
-                    if isinstance(value, str):
-                        raise SyntaxError(
-                            'Non-attribute value in namespace declaration',
-                            self)
-                    self.current.add_namespace(value[0], value[1])
-            elif directive.name == 'def':
-                for value in directive.values:
-                    if isinstance(value, str):
-                        raise SyntaxError(
-                            'Non-attribute value in namespace declaration',
-                            self)
-                    self.current.add_definition(value[0], value[1])
+                    raise SyntaxError(
+                        'Unsupported ducktype extension ' + value,
+                        self)
+            elif directive.name == 'encoding':
+                FIXME('encoding')
+            elif directive.name == 'namespace':
+                if len(directive.values) != 2:
+                    raise SyntaxError(
+                        'Namespace declaration takes exactly two values',
+                        self)
+                self.current.add_namespace(*directive.values)
+            elif directive.name == 'define':
+                if len(directive.values) != 2:
+                    raise SyntaxError(
+                        'Entity definition takes exactly two values',
+                        self)
+                self.current.add_definition(*directive.values)
             else:
                 # FIXME: unknown directive
                 pass

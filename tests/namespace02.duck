@@ -1,0 +1,10 @@
+@ducktype/1.0
+@namespace if http://projectmallard.org/if/1.0/
+
+= Namespace Test
+
+[if:if test=target:mobile]
+This is a test of namespaces.
+
+[p if:test=target:mobile]
+This is a test of namespaces.

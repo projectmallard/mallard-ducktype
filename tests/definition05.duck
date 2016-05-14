@@ -1,7 +1,6 @@
-[[ducktype/1.0]]
-[[def hi="$hello; world"
-      hello="hello"
-]]
+@ducktype/1.0
+@define hello "hello"
+@define hi "$hello; world"
 
 = Definition Test
 

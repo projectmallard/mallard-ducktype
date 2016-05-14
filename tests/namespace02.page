@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/if/1.0/" id="namespace02">
+ <title>Namespace Test</title>
+ <if:if test="target:mobile">
+  <p>This is a test of namespaces.</p>
+ </if:if>
+ <p if:test="target:mobile">This is a test of namespaces.</p>
+</page>
