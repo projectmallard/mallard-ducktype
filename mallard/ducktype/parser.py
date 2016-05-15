@@ -18,6 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import collections
 import os
 import sys
 
@@ -94,7 +95,7 @@ class Node:
                           'subtitle', 'desc', 'cite',
                           'name', 'email'))
         self.linenum = linenum
-        self._namespaces = []
+        self._namespaces = collections.OrderedDict()
         self._definitions = {}
         self._parent = None
         self._depth = 1
@@ -153,7 +154,7 @@ class Node:
             self.children.append(text)
 
     def add_namespace(self, prefix, uri):
-        self._namespaces.append((prefix, uri))
+        self._namespaces[prefix] =uri
 
     def add_definition(self, name, value):
         self._definitions[name] = value
@@ -180,8 +181,8 @@ class Node:
         fd.write('<' + self.name)
         if self.name == 'page':
             fd.write(' xmlns="http://projectmallard.org/1.0/"')
-        for prefix, uri in self._namespaces:
-            fd.write(' xmlns:' + prefix + '="' + uri + '"')
+        for prefix in self._namespaces:
+            fd.write(' xmlns:' + prefix + '="' + self._namespaces[prefix] + '"')
         if self.attributes is not None:
             self.attributes._write_xml(fd)
         if self.empty:
