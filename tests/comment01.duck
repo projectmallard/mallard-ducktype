@@ -1,0 +1,6 @@
+= Comment Test
+This is a paragraph.
+[--
+This is commented out.
+--]
+This is still the first paragraph.

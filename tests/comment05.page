@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="comment05">
+ <title>Comment Test</title>
+ <note>
+  <p>This is in the note.</p>
+  <p>This is a new paragraph in the note.
+  This is still in that paragraph.</p>
+ </note>
+</page>

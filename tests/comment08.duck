@@ -1,0 +1,11 @@
+= Comment Test
+
+[note]
+  This is in the note.
+[--
+    This is commented out.
+[-] This doesn't affect the block comment.
+    [-] This doesn't affect the block comment.
+  --]
+
+  This is a new paragraph in the note.

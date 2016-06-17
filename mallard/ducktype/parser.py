@@ -591,6 +591,7 @@ class DuckParser:
         self._attrparser = None
         self._directiveparser = None
         self._defaultid = None
+        self._comment = False
 
     def lookup_entity(self, entity):
         cur = self.current
@@ -657,7 +658,18 @@ class DuckParser:
         self.parse_inline()
 
     def _parse_line(self, line):
-        if self._directiveparser is not None:
+        if self._comment:
+            if line.strip() == '--]':
+                self._comment = False
+            return
+        indent = self._get_indent(line)
+        iline = line[indent:]
+        if iline.startswith('[-]'):
+            return
+        elif iline.startswith('[--'):
+            self._comment = True
+            return
+        elif self._directiveparser is not None:
             self._parse_line_directive(line)
         elif self.info_state == DuckParser.INFO_STATE_INFO:
             self._parse_line_info(line)

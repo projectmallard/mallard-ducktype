@@ -1,0 +1,8 @@
+= Comment Test
+
+[note]
+  This is in the note.
+    [--
+    This is commented out.
+  --]
+  This is still the first paragraph in the note.

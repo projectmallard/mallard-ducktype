@@ -1,0 +1,9 @@
+= Comment Test
+
+[note]
+  This is in the note.
+[-- This is commented out.
+  This is still commented out.
+  --] This did not end the comment.
+
+  This is still commented out.
