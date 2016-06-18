@@ -4,7 +4,7 @@ setup(
     name='mallard-ducktype',
     version='0.2',
     description='Parse Ducktype files and convert them to Mallard.',
-    packages=['mallard.ducktype'],
+    packages=['mallard', 'mallard.ducktype'],
     scripts=['bin/ducktype'],
     author='Shaun McCance',
     author_email='shaunm@gnome.org',
