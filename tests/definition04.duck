@@ -1,6 +1,6 @@
 @ducktype/1.0
-@define hello "hello $world;"
-@define world "world"
+@define hello hello $world;
+@define world world
 
 = Definition Test
 

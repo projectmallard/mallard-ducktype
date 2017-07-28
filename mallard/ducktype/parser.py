@@ -70,10 +70,10 @@ class Attributes:
 class Directive:
     def __init__(self, name):
         self.name = name
-        self.values = []
+        self.content = ''
 
-    def add_value(self, value):
-        self.values.append(value)
+    def set_content(self, content):
+        self.content = content
 
 
 class Node:
@@ -490,75 +490,6 @@ class AttributeParser:
                     raise SyntaxError('Invalid character in attribute list', self)
 
 
-class DirectiveParser:
-    def __init__(self, parent):
-        self.remainder = None
-        self.finished = False
-        self.filename = parent.filename
-        self.linenum = parent.linenum
-        self.directive = None
-        self._value = ''
-        self._quote = None
-        self._parent = parent
-
-    def parse_line(self, line):
-        i = 0
-        if self.directive is None:
-            i = 1
-            while i < len(line):
-                if line[i].isspace():
-                    break
-                i += 1
-            if i == 1:
-                raise SyntaxError('Directive must start with a name', self)
-            self.directive = Directive(line[1:i])
-            i += 1
-        while i < len(line) and not self.finished:
-            if self._quote is None:
-                while i < len(line) and line[i].isspace():
-                    i += 1
-                if i >= len(line):
-                    break
-                j = i
-                if line[i] in ('"', "'"):
-                    self._quote = line[i]
-                    self._value = ''
-                    i += 1
-                    continue
-                while j < len(line):
-                    if line[j].isspace():
-                        self.directive.add_value(line[i:j])
-                        i = j + 1
-                        break
-                    j += 1
-            else: # in a quoted value
-                j = i
-                while j < len(line):
-                    if line[j] == '$':
-                        # Will be parsed later. Just skip the escaped quote
-                        # char so it doesn't close the attribute value.
-                        if j + 1 < len(line) and line[j] in _escaped_chars:
-                            j += 2
-                        else:
-                            j += 1
-                    elif line[j] == '\n':
-                        self._value += line[i:]
-                        i = j + 1
-                        break
-                    elif line[j] == self._quote:
-                        self._value += line[i:j]
-                        self.directive.add_value(self._value)
-                        self._value = ''
-                        self._quote = None
-                        i = j + 1
-                        break
-                    else:
-                        j += 1
-        if self._quote is None:
-            self.finished = True
-        return
-
-
 class DuckParser:
     STATE_START = 1
     STATE_TOP = 2
@@ -589,7 +520,6 @@ class DuckParser:
         self.linenum = 0
         self._value = ''
         self._attrparser = None
-        self._directiveparser = None
         self._defaultid = None
         self._comment = False
 
@@ -669,8 +599,6 @@ class DuckParser:
         elif iline.startswith('[--'):
             self._comment = True
             return
-        elif self._directiveparser is not None:
-            self._parse_line_directive(line)
         elif self.info_state == DuckParser.INFO_STATE_INFO:
             self._parse_line_info(line)
         elif self.info_state == DuckParser.INFO_STATE_READY:
@@ -708,7 +636,6 @@ class DuckParser:
         if line.strip() == '':
             self.state = DuckParser.STATE_TOP
         elif line.startswith('@'):
-            self._directiveparser = DirectiveParser(self)
             self._parse_line_directive(line)
         elif line.startswith('= '):
             self._value = line[2:]
@@ -720,40 +647,48 @@ class DuckParser:
             raise SyntaxError('Missing page header', self)
 
     def _parse_line_directive(self, line):
-        self._directiveparser.parse_line(line)
-        if self._directiveparser.finished:
-            directive = self._directiveparser.directive
-            self._directiveparser = None
-            if directive.name.startswith('ducktype/'):
-                if self.state != DuckParser.STATE_START:
-                    raise SyntaxError('Ducktype declaration must be first', self)
-                if directive.name != 'ducktype/1.0':
-                    raise SyntaxError(
-                        'Unsupported ducktype version ' + directive.name ,
-                        self)
-                for value in directive.values:
-                    raise SyntaxError(
-                        'Unsupported ducktype extension ' + value,
-                        self)
-            elif directive.name == 'encoding':
-                FIXME('encoding')
-            elif directive.name == 'namespace':
-                if len(directive.values) != 2:
-                    raise SyntaxError(
-                        'Namespace declaration takes exactly two values',
-                        self)
-                self.current.add_namespace(*directive.values)
-            elif directive.name == 'define':
-                if len(directive.values) != 2:
-                    raise SyntaxError(
-                        'Entity definition takes exactly two values',
-                        self)
-                self.current.add_definition(*directive.values)
-            else:
-                # FIXME: unknown directive
-                pass
-            if self.state == DuckParser.STATE_START:
-                self.state == DuckParser.STATE_TOP
+        i = 1
+        while i < len(line):
+            if line[i].isspace():
+                break
+            i += 1
+        if i == 1:
+            raise SyntaxError('Directive must start with a name', self)
+        directive = Directive(line[1:i])
+        directive.set_content(line[i:].lstrip().rstrip('\n'))
+
+        if directive.name.startswith('ducktype/'):
+            if self.state != DuckParser.STATE_START:
+                raise SyntaxError('Ducktype declaration must be first', self)
+            if directive.name != 'ducktype/1.0':
+                raise SyntaxError(
+                    'Unsupported ducktype version ' + directive.name ,
+                    self)
+            for value in directive.content.split():
+                raise SyntaxError(
+                    'Unsupported ducktype extension ' + value,
+                    self)
+        elif directive.name == 'encoding':
+            FIXME('encoding')
+        elif directive.name == 'namespace':
+            values = directive.content.split(maxsplit=1)
+            if len(values) != 2:
+                raise SyntaxError(
+                    'Namespace declaration takes exactly two values',
+                    self)
+            self.current.add_namespace(*values)
+        elif directive.name == 'define':
+            values = directive.content.split(maxsplit=1)
+            if len(values) != 2:
+                raise SyntaxError(
+                    'Entity definition takes exactly two values',
+                    self)
+            self.current.add_definition(*values)
+        else:
+            # FIXME: unknown directive
+            pass
+        if self.state == DuckParser.STATE_START:
+            self.state == DuckParser.STATE_TOP
 
     def _parse_line_header(self, line):
         indent = self._get_indent(line)

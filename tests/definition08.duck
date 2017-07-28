@@ -1,6 +1,6 @@
 @ducktype/1.0
-@define fi '$fo;'
-@define fe "$fi;"
+@define fi $fo;
+@define fe $fi;
 @define fo fum
 
 = Definition Test
