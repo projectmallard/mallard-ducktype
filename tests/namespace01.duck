@@ -1,0 +1,6 @@
+@ducktype/1.0
+@namespace if http://projectmallard.org/if/1.0/
+
+= Namespace Test
+
+This is a test of namespaces.

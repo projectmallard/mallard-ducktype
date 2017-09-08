@@ -1,0 +1,6 @@
+@ducktype/1.0
+
+= Namespace Test
+
+[e:nope]
+This is a test of undefined namespaces.

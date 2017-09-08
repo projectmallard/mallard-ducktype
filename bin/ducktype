@@ -44,8 +44,7 @@ if __name__ == '__main__':
             parser.parse_file(file)
             parser.finish()
         except mallard.ducktype.SyntaxError as e:
-            sys.stderr.write(os.path.basename(e.filename) + ':' +
-                             str(e.linenum) + ': ' + e.message + '\n')
+            sys.stderr.write(e.fullmessage + '\n')
         basename = os.path.basename(file)
         if basename.endswith('.duck'):
             basename = basename[:-5]

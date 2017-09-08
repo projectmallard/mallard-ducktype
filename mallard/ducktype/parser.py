@@ -77,7 +77,11 @@ class Directive:
 
 
 class Node:
-    def __init__(self, name, outer=0, inner=None, linenum=0):
+    def __init__(self, name, outer=0, inner=None, parser=None, linenum=None):
+        if ':' in name:
+            prefix = name[:name.index(':')]
+            if prefix not in parser.document._namespaces:
+                raise SyntaxError('Unrecognized namespace prefix: ' + prefix, parser)
         self.name = name
         self.outer = outer
         if inner is None:
@@ -95,6 +99,8 @@ class Node:
                           'subtitle', 'desc', 'cite',
                           'name', 'email'))
         self.linenum = linenum
+        if self.linenum is None and parser is not None:
+            self.linenum = parser.linenum
         self._namespaces = collections.OrderedDict()
         self._definitions = {}
         self._parent = None
@@ -244,14 +250,22 @@ class SyntaxError(Exception):
     def __init__(self, message, parser):
         self.message = message
         self.parser = parser
-        self.filename = parser.filename
-        self.linenum = parser.linenum
+        self.filename = parser.filename if parser else None
+        self.linenum = parser.linenum if parser else None
+        self.fullmessage = ''
+        if self.filename is not None:
+            self.fullmessage += os.path.basename(self.filename)
+            if self.linenum is not None:
+                self.fullmessage += ':' + str(self.linenum)
+            self.fullmessage += ': '
+        self.fullmessage += self.message
 
 
 class InlineParser:
     def __init__(self, parent, linenum=1, raw=False):
         # Dummy node just to hold children while we parse
-        self.current = Inline('_')
+        self.current = Inline('_', linenum=linenum)
+        self.document = parent.document
         self.filename = parent.filename
         self.linenum = linenum
         self._parent = parent
@@ -318,7 +332,7 @@ class InlineParser:
                     start = cur = end + 1
                 elif text[end] == '[':
                     self.current.add_text(text[start:cur], raw=self._raw)
-                    node = Inline(text[cur + 1:end])
+                    node = Inline(text[cur + 1:end], parser=self)
                     self.current.add_child(node)
                     attrparser = AttributeParser(self)
                     attrparser.parse_line(text[end + 1:])
@@ -337,7 +351,7 @@ class InlineParser:
                         start = cur = cur + 1
                 elif text[end] == '(':
                     self.current.add_text(text[start:cur], raw=self._raw)
-                    node = Inline(text[cur + 1:end])
+                    node = Inline(text[cur + 1:end], parser=self)
                     self.current.add_child(node)
                     self.current = node
                     parens.append(0)
@@ -639,7 +653,7 @@ class DuckParser:
             self._parse_line_directive(line)
         elif line.startswith('= '):
             self._value = line[2:]
-            node = Block('title', 0, 2, linenum=self.linenum)
+            node = Block('title', 0, 2, parser=self)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_HEADER
@@ -712,7 +726,7 @@ class DuckParser:
     def _parse_line_header_post(self, line):
         if line.startswith(('-' * self.current.depth) + ' '):
             self._value = line[self.current.depth + 1:]
-            node = Block('subtitle', 0, self.current.depth + 1, linenum=self.linenum)
+            node = Block('subtitle', 0, self.current.depth + 1, parser=self)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_SUBHEADER
@@ -813,7 +827,7 @@ class DuckParser:
 
         indent = self._get_indent(line)
         if self.current.info is None:
-            self.current.info = Block('info', indent, indent, linenum=self.linenum)
+            self.current.info = Block('info', indent, indent, parser=self)
             self.curinfo = self.current.info
         if indent < self.current.info.outer:
             self._push_value()
@@ -852,7 +866,7 @@ class DuckParser:
             if not _isnmtoken(iline[j]):
                 break
         name = iline[1:j]
-        node = Info(name, indent)
+        node = Info(name, indent, parser=self)
         self.curinfo.add_child(node)
         self.curinfo = node
 
@@ -886,7 +900,7 @@ class DuckParser:
                     if self.curinfo == self.current.info:
                         break
                     self.curinfo = self.curinfo.parent
-            node = Info('p', indent)
+            node = Info('p', indent, parser=self)
             self.curinfo.add_child(node)
             self.curinfo = node
 
@@ -951,9 +965,9 @@ class DuckParser:
                 self.current = self.current.parent
             if sectd != self.current.depth + 1:
                 raise SyntaxError('Incorrect section depth', self)
-            section = Block('section', linenum=self.linenum)
+            section = Block('section', parser=self)
             self.current.add_child(section)
-            title = Block('title', 0, sectd + 1, linenum=self.linenum)
+            title = Block('title', 0, sectd + 1, parser=self)
             section.add_child(title)
             self.current = title
             self._value = line[sectd + 1:]
@@ -1006,7 +1020,7 @@ class DuckParser:
                     break
                 self.current = self.current.parent
 
-            node = Block(name, indent, linenum=self.linenum)
+            node = Block(name, indent, parser=self)
             self.current.add_child(node)
             self.current = node
 
@@ -1032,7 +1046,7 @@ class DuckParser:
                     not self.current.available and
                     self.current.outer == indent)):
                 self.current = self.current.parent
-            node = Block('p', indent, linenum=self.linenum)
+            node = Block('p', indent, parser=self)
             self.current.add_child(node)
             self.current = node
             self._value += iline
@@ -1044,7 +1058,7 @@ class DuckParser:
         while ((not self.current.division) and
                (self.current.terminal or self.current.outer > indent)):
             self.current = self.current.parent
-        title = Block('title', indent, indent + 2, linenum=self.linenum)
+        title = Block('title', indent, indent + 2, parser=self)
         self.current.add_child(title)
         self.current = title
         self._parse_line((' ' * self.current.inner) + iline[2:])
@@ -1056,14 +1070,14 @@ class DuckParser:
             self.current = self.current.parent
 
         if self.current.name == 'tr':
-            node = Block('th', indent, indent + 2, linenum=self.linenum)
+            node = Block('th', indent, indent + 2, parser=self)
             self.current.add_child(node)
             self.current = node
             self._parse_line((' ' * node.inner) + iline[2:])
             return
 
         if self.current.name != 'terms':
-            node = Block('terms', indent, linenum=self.linenum)
+            node = Block('terms', indent, parser=self)
             self.current.add_child(node)
             self.current = node
         # By now we've unwound to the terms element. If the preceding
@@ -1078,10 +1092,10 @@ class DuckParser:
                 and item.children[-1].name == 'title'):
                 self.current = item
         if self.current.name != 'item':
-            item = Block('item', indent, indent + 2, linenum=self.linenum)
+            item = Block('item', indent, indent + 2, parser=self)
             self.current.add_child(item)
             self.current = item
-        title = Block('title', indent, indent + 2, linenum=self.linenum)
+        title = Block('title', indent, indent + 2, parser=self)
         self.current.add_child(title)
         self.current = title
         self._parse_line((' ' * self.current.inner) + iline[2:])
@@ -1093,7 +1107,7 @@ class DuckParser:
             self.current = self.current.parent
 
         if self.current.name == 'tr':
-            node = Block('td', indent, indent + 2, linenum=self.linenum)
+            node = Block('td', indent, indent + 2, parser=self)
             self.current.add_child(node)
             self.current = node
             self._parse_line((' ' * node.inner) + iline[2:])
@@ -1107,14 +1121,14 @@ class DuckParser:
         elif self.current.name == 'tree':
             FIXME(self.current.name)
         elif self.current.name in ('list', 'steps'):
-            item = Block('item', indent, indent + 2, linenum=self.linenum)
+            item = Block('item', indent, indent + 2, parser=self)
             self.current.add_child(item)
             self.current = item
             self._parse_line((' ' * item.inner) + iline[2:])
         else:
-            node = Block('list', indent, linenum=self.linenum)
+            node = Block('list', indent, parser=self)
             self.current.add_child(node)
-            item = Block('item', indent, indent + 2, linenum=self.linenum)
+            item = Block('item', indent, indent + 2, parser=self)
             node.add_child(item)
             self.current = item
             self._parse_line((' ' * item.inner) + iline[2:])

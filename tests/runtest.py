@@ -12,7 +12,6 @@ try:
     parser.parse_file(sys.argv[1])
     parser.finish()
 except mallard.ducktype.SyntaxError as e:
-    print(os.path.basename(e.filename) + ':' +
-          str(e.linenum) + ': ' + e.message)
+    print(e.fullmessage)
     sys.exit(1)
 parser.document.write_xml(sys.stdout)

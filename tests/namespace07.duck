@@ -1,0 +1,6 @@
+@ducktype/1.0
+@define undefined undefined $e:hi(namespace)
+
+= Namespace Test
+
+This is a test of $undefined;.
