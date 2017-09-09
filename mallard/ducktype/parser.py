@@ -91,13 +91,13 @@ class Node:
         self.info = None
         self.children = []
         self.attributes = None
-        self.division = (name in ('page', 'section'))
-        self.verbatim = (name in ('screen', 'code'))
-        self.list = (name in ('list', 'steps', 'terms', 'tree'))
-        self.terminal = (name in
-                         ('p', 'screen', 'code', 'title',
-                          'subtitle', 'desc', 'cite',
-                          'name', 'email'))
+        self.is_division = (name in ('page', 'section'))
+        self.is_verbatim = (name in ('screen', 'code'))
+        self.is_list = (name in ('list', 'steps', 'terms', 'tree'))
+        self.is_leaf = (name in
+                        ('p', 'screen', 'code', 'title',
+                         'subtitle', 'desc', 'cite',
+                         'name', 'email'))
         self.linenum = linenum
         if self.linenum is None and parser is not None:
             self.linenum = parser.linenum
@@ -108,7 +108,7 @@ class Node:
         self._softbreak = False # Help keep out pesky trailing newlines
 
     @property
-    def empty(self):
+    def is_empty(self):
         return len(self.children) == 0 and self.info is None
 
     @property
@@ -179,7 +179,7 @@ class Node:
             fd.close()
 
     def _write_xml(self, fd, *, depth=0, verbatim=False):
-        verbatim = verbatim or self.verbatim
+        verbatim = verbatim or self.is_verbatim
         if self.name == 'page':
             fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
         if not isinstance(self, Inline):
@@ -191,7 +191,7 @@ class Node:
             fd.write(' xmlns:' + prefix + '="' + self._namespaces[prefix] + '"')
         if self.attributes is not None:
             self.attributes._write_xml(fd)
-        if self.empty:
+        if self.is_empty:
             if isinstance(self, Inline):
                 fd.write('/>')
             else:
@@ -225,10 +225,10 @@ class Node:
                     fd.write(_escape_xml(child))
             else:
                 fd.write(_escape_xml(child))
-        if not self.empty:
+        if not self.is_empty:
             if isinstance(self, Inline):
                 fd.write('</' + self.name + '>')
-            elif self.terminal:
+            elif self.is_leaf:
                 fd.write('</' + self.name + '>\n')
             else:
                 fd.write((' ' * depth) + '</' + self.name + '>\n')
@@ -807,7 +807,7 @@ class DuckParser:
             # level of the parent and the parent is a block, blank
             # line terminates info, because it must terminate the
             # block according to block processing rules.
-            if (self.current.outer == self.current.inner and not self.current.division):
+            if (self.current.outer == self.current.inner and not self.current.is_division):
                 self._push_value()
                 self.info_state = DuckParser.INFO_STATE_NONE
                 self._parse_line(line)
@@ -815,8 +815,8 @@ class DuckParser:
             # If we're inside a leaf element like a paragraph, break
             # out of that. Unless it's an indented verbatim element,
             # in which case the newline is just part of the content.
-            if self.curinfo.terminal:
-                if (self.curinfo.verbatim and
+            if self.curinfo.is_leaf:
+                if (self.curinfo.is_verbatim and
                     self.curinfo.inner > self.curinfo.outer):
                     self._value += '\n'
                 else:
@@ -884,7 +884,7 @@ class DuckParser:
         # if the indent is less than the inner indent. For example:
         # @p
         # Inside of p
-        if self.curinfo.terminal:
+        if self.curinfo.is_leaf:
             if indent < self.curinfo.inner:
                 self._push_value()
                 self.curinfo = self.curinfo.parent
@@ -931,21 +931,21 @@ class DuckParser:
         # unindented block container elements, except for a set of special
         # elements that take lists of things instead of general blocks.
         if line.strip() == '':
-            if self.current.terminal:
-                if (self.current.verbatim and
+            if self.current.is_leaf:
+                if (self.current.is_verbatim and
                     self.current.inner > self.current.outer):
                     self._value += '\n'
                 else:
                     self._push_value()
                     self.current = self.current.parent
             while self.current.inner == self.current.outer:
-                if self.current.division:
+                if self.current.is_division:
                     break
                 if self.current.name in ('list', 'steps', 'terms', 'tree'):
                     break
                 if self.current.name in ('table', 'thead', 'tfoot', 'tbody', 'tr'):
                     break
-                if self.current.terminal:
+                if self.current.is_leaf:
                     self._push_value()
                 self.current = self.current.parent
             return
@@ -959,7 +959,7 @@ class DuckParser:
                 sectd = i
         if sectd > 0:
             self._push_value()
-            while not self.current.division:
+            while not self.current.is_division:
                 self.current = self.current.parent
             while self.current.depth >= sectd:
                 self.current = self.current.parent
@@ -982,18 +982,18 @@ class DuckParser:
         indent = self._get_indent(line)
         if indent < self.current.inner:
             self._push_value()
-            while (not self.current.division) and self.current.inner > indent:
+            while (not self.current.is_division) and self.current.inner > indent:
                 self.current = self.current.parent
 
-        if self.current.verbatim:
+        if self.current.is_verbatim:
             iline = line[self.current.inner:]
         else:
             iline = line[indent:]
         if iline.startswith('['):
             # Start a block with a standard block declaration.
             self._push_value()
-            while (not self.current.division and (
-                    self.current.terminal or
+            while (not self.current.is_division and (
+                    self.current.is_leaf or
                     self.current.outer > indent)):
                 self.current = self.current.parent
 
@@ -1005,10 +1005,10 @@ class DuckParser:
             # Now we unravel a bit more. We do not want current to be
             # at the same indent level, unless one of a number of special
             # case conditions is met.
-            while (not self.current.division and (
+            while (not self.current.is_division and (
                     not self.current.available and
                     self.current.outer == indent)):
-                if name == 'item' and self.current.list:
+                if name == 'item' and self.current.is_list:
                     break
                 if name in ('td', 'th') and self.current.name == 'tr':
                     break
@@ -1041,8 +1041,8 @@ class DuckParser:
             self._parse_line_block_item_title(iline, indent)
         elif iline.startswith('* '):
             self._parse_line_block_item_content(iline, indent)
-        elif not self.current.terminal:
-            while (not self.current.division and (
+        elif not self.current.is_leaf:
+            while (not self.current.is_division and (
                     not self.current.available and
                     self.current.outer == indent)):
                 self.current = self.current.parent
@@ -1055,8 +1055,8 @@ class DuckParser:
 
     def _parse_line_block_title(self, iline, indent):
         self._push_value()
-        while ((not self.current.division) and
-               (self.current.terminal or self.current.outer > indent)):
+        while ((not self.current.is_division) and
+               (self.current.is_leaf or self.current.outer > indent)):
             self.current = self.current.parent
         title = Block('title', indent, indent + 2, parser=self)
         self.current.add_child(title)
@@ -1065,8 +1065,8 @@ class DuckParser:
 
     def _parse_line_block_item_title(self, iline, indent):
         self._push_value()
-        while ((not self.current.division) and
-               (self.current.terminal or self.current.outer > indent)):
+        while ((not self.current.is_division) and
+               (self.current.is_leaf or self.current.outer > indent)):
             self.current = self.current.parent
 
         if self.current.name == 'tr':
@@ -1083,11 +1083,11 @@ class DuckParser:
         # By now we've unwound to the terms element. If the preceding
         # block was a title, then the last item will have only title
         # elements, and we just keep appending there.
-        if (not self.current.empty
+        if (not self.current.is_empty
             and isinstance(self.current.children[-1], Block)
             and self.current.children[-1].name == 'item'):
             item = self.current.children[-1]
-            if (not item.empty
+            if (not item.is_empty
                 and isinstance(self.current.children[-1], Block)
                 and item.children[-1].name == 'title'):
                 self.current = item
@@ -1102,8 +1102,8 @@ class DuckParser:
 
     def _parse_line_block_item_content(self, iline, indent):
         self._push_value()
-        while ((not self.current.division) and
-               (self.current.terminal or self.current.outer > indent)):
+        while ((not self.current.is_division) and
+               (self.current.is_leaf or self.current.outer > indent)):
             self.current = self.current.parent
 
         if self.current.name == 'tr':
@@ -1114,7 +1114,7 @@ class DuckParser:
         elif self.current.name == 'terms':
             # All the logic above will have unraveled us from the item
             # created by the title, so we have to step back into it.
-            if self.current.empty or self.current.children[-1].name != 'item':
+            if self.current.is_empty or self.current.children[-1].name != 'item':
                 raise SyntaxError('Missing item title in terms', self)
             self.current = self.current.children[-1]
             self._parse_line((' ' * self.current.inner) + iline[2:])
@@ -1143,7 +1143,7 @@ class DuckParser:
     def _parse_line_block_ready(self, line):
         indent = self._get_indent(line)
         if indent < self.current.outer:
-            while ((not self.current.division) and
+            while ((not self.current.is_division) and
                    (self.current.outer > indent)):
                 self.current = self.current.parent
         else:
