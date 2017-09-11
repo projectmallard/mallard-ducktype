@@ -78,11 +78,19 @@ class Directive:
 
 class Node:
     def __init__(self, name, outer=0, inner=None, parser=None, linenum=None):
-        if ':' in name:
-            prefix = name[:name.index(':')]
-            if prefix not in parser.document._namespaces:
-                raise SyntaxError('Unrecognized namespace prefix: ' + prefix, parser)
         self.name = name
+        self.nsprefix = None
+        self.nsuri = None
+        self.localname = name
+        self.is_external = False
+        if ':' in name:
+            self.nsprefix = name[:name.index(':')]
+            self.nsuri = parser.document.get_namespace(self.nsprefix)
+            if self.nsuri is None:
+                raise SyntaxError('Unrecognized namespace prefix: ' + self.nsprefix, parser)
+            self.localname = self.name[len(self.nsprefix)+1:]
+            if not self.nsuri.startswith('http://projectmallard.org/'):
+                self.is_external = True
         self.outer = outer
         if inner is None:
             self.inner = outer
@@ -94,10 +102,6 @@ class Node:
         self.is_division = (name in ('page', 'section'))
         self.is_verbatim = (name in ('screen', 'code'))
         self.is_list = (name in ('list', 'steps', 'terms', 'tree'))
-        self.is_leaf = (name in
-                        ('p', 'screen', 'code', 'title',
-                         'subtitle', 'desc', 'cite',
-                         'name', 'email'))
         self.linenum = linenum
         if self.linenum is None and parser is not None:
             self.linenum = parser.linenum
@@ -106,6 +110,28 @@ class Node:
         self._parent = None
         self._depth = 1
         self._softbreak = False # Help keep out pesky trailing newlines
+
+    @property
+    def is_leaf(self):
+        leafs = ('p', 'screen', 'code', 'title', 'subtitle', 'desc', 'cite', 'name', 'email')
+        if self.name in leafs:
+            return True
+        if self.nsprefix is not None:
+            if self.nsuri is None:
+                return False
+            if self.nsuri == 'http://projectmallard.org/1.0/':
+                return self.localname in leafs
+        return False
+
+    @property
+    def is_external_leaf(self):
+        if not self.is_external:
+            return False
+        if len(self.children) == 0:
+            return False
+        if isinstance(self.children[0], str) or isinstance(self.children[0], Inline):
+            return True
+        return False
 
     @property
     def is_empty(self):
@@ -161,6 +187,14 @@ class Node:
 
     def add_namespace(self, prefix, uri):
         self._namespaces[prefix] =uri
+
+    def get_namespace(self, prefix):
+        uri = self._namespaces.get(prefix)
+        if uri is not None:
+            return uri
+        if self._parent is not None:
+            return self._parent.get_namespace(prefix)
+        return None
 
     def add_definition(self, name, value):
         self._definitions[name] = value
@@ -228,7 +262,7 @@ class Node:
         if not self.is_empty:
             if isinstance(self, Inline):
                 fd.write('</' + self.name + '>')
-            elif self.is_leaf:
+            elif self.is_leaf or self.is_external_leaf:
                 fd.write('</' + self.name + '>\n')
             else:
                 fd.write((' ' * depth) + '</' + self.name + '>\n')
@@ -884,7 +918,7 @@ class DuckParser:
         # if the indent is less than the inner indent. For example:
         # @p
         # Inside of p
-        if self.curinfo.is_leaf:
+        if self.curinfo.is_leaf or self.curinfo.is_external:
             if indent < self.curinfo.inner:
                 self._push_value()
                 self.curinfo = self.curinfo.parent
@@ -925,9 +959,9 @@ class DuckParser:
                 self.info_state = DuckParser.INFO_STATE_INFO
 
     def _parse_line_block(self, line):
-        # Blank lines close off elements that have inline content (terminal)
+        # Blank lines close off elements that have inline content (leaf)
         # unless they're verbatim elements that have an inner indent. Only
-        # decreasing indent can break free of those. They also break out of
+       # decreasing indent can break free of those. They also break out of
         # unindented block container elements, except for a set of special
         # elements that take lists of things instead of general blocks.
         if line.strip() == '':
@@ -1041,7 +1075,7 @@ class DuckParser:
             self._parse_line_block_item_title(iline, indent)
         elif iline.startswith('* '):
             self._parse_line_block_item_content(iline, indent)
-        elif not self.current.is_leaf:
+        elif not (self.current.is_leaf or self.current.is_external):
             while (not self.current.is_division and (
                     not self.current.available and
                     self.current.outer == indent)):

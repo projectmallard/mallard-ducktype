@@ -1,0 +1,8 @@
+@namespace mal http://projectmallard.org/1.0/
+
+= Block Test
+
+This tests leaf nodes in other namespaces.
+
+[mal:div]
+  This should have a Mallard p element added.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:mal="http://projectmallard.org/1.0/" id="block23">
+ <title>Block Test</title>
+ <p>This tests leaf nodes in other namespaces.</p>
+ <mal:screen>This should not have a Mallard p element added.</mal:screen>
+</page>

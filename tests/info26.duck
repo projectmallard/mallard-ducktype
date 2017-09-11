@@ -1,0 +1,8 @@
+@namespace if http://projectmallard.org/if/1.0/
+
+= Info Test
+@if:if[test=target:html]
+  This should have a Mallard p element added.
+
+This tests leaf nodes in other namespaces.
+

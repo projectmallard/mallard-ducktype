@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:tt="http://www.w3.org/ns/ttml" id="info25">
+ <info>
+  <tt:tt>
+   <tt:body>
+    <tt:div begin="1s" end="3s">
+     <tt:p>This should not have a Mallard p element added.</tt:p>
+    </tt:div>
+   </tt:body>
+  </tt:tt>
+ </info>
+ <title>Info Test</title>
+ <p>This tests leaf nodes in other namespaces.</p>
+</page>

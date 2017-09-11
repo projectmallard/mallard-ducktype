@@ -1,0 +1,7 @@
+@namespace mal http://projectmallard.org/1.0/
+
+= Info Test
+@mal:screen
+  This should not have a Mallard p element added.
+
+This tests leaf nodes in other namespaces.

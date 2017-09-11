@@ -1,0 +1,12 @@
+@namespace tt http://www.w3.org/ns/ttml
+
+= Block Test
+
+This tests leaf nodes in other namespaces.
+
+[media video src=video.mp4]
+  [tt:tt]
+    [tt:body]
+      [tt:div begin="1s" end="3s"]
+        [tt:p]
+        This should not have a Mallard p element added.
