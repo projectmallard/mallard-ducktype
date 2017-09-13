@@ -1,0 +1,7 @@
+@ducktype/1.0
+@namespace xml http://www.w3.org/XML/1998/namespace
+
+= Namespace Test
+
+[code xml:space=preserve]
+This is a test of namespaces.

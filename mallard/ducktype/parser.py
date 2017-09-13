@@ -86,7 +86,7 @@ class Node:
         if ':' in name:
             self.nsprefix = name[:name.index(':')]
             self.nsuri = parser.document.get_namespace(self.nsprefix)
-            if self.nsuri is None:
+            if self.nsuri is None and self.nsprefix != 'xml':
                 raise SyntaxError('Unrecognized namespace prefix: ' + self.nsprefix, parser)
             self.localname = self.name[len(self.nsprefix)+1:]
             if not self.nsuri.startswith('http://projectmallard.org/'):
@@ -724,6 +724,9 @@ class DuckParser:
                 raise SyntaxError(
                     'Namespace declaration takes exactly two values',
                     self)
+            if values[0] == 'xml':
+                if values[1] != 'http://www.w3.org/XML/1998/namespace':
+                    raise SyntaxError('Wrong value of xml namespace prefix', self)
             self.current.add_namespace(*values)
         elif directive.name == 'define':
             values = directive.content.split(maxsplit=1)
