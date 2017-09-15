@@ -555,6 +555,7 @@ class DirectiveIncludeParser:
     def __init__(self, parent):
         self.parent = parent
         self._start = True
+        self._comment = False
 
     def parse_file(self, filename):
         self.filename = filename
@@ -572,6 +573,19 @@ class DirectiveIncludeParser:
 
     def parse_line(self, line):
         self.linenum += 1
+
+        if self._comment:
+            if line.strip() == '--]':
+                self._comment = False
+            return
+        indent = DuckParser._get_indent(self, line)
+        iline = line[indent:]
+        if iline.startswith('[-]'):
+            return
+        elif iline.startswith('[--'):
+            self._comment = True
+            return
+
         if line.strip() == '':
             return
         if not(line.startswith('@')):

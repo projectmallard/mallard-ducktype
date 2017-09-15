@@ -1,0 +1,8 @@
+@ducktype/1.0
+[-] A comment
+@namespace if http://projectmallard.org/if/1.0/
+
+= Comment Test
+
+[if:if test=target:html]
+This is a test of comments.

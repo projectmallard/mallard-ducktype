@@ -1,0 +1,7 @@
+@ducktype/1.0
+@include comment11-1.txt
+
+= Comment Test
+
+[if:if test=target:html]
+This is a test of comments.
