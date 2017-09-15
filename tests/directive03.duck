@@ -1,0 +1,7 @@
+@ducktype/1.0
+@include directive03-1.txt
+
+= Directive Test
+
+[if:if test=target:html]
+This is a test of directives.

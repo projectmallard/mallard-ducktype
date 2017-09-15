@@ -1,0 +1,4 @@
+@namespace if http://projectmallard.org/if/1.0/
+
+[wrong]
+Directive includes can include only directives

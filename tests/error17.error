@@ -1,1 +1,1 @@
-error17.duck:1: Unsupported ducktype extension badextension="bar"
+error17.duck:1: Unsupported ducktype extension: badextension="bar"

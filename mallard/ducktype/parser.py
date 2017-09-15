@@ -75,6 +75,19 @@ class Directive:
     def set_content(self, content):
         self.content = content
 
+    @staticmethod
+    def parse_line(line, parser):
+        i = 1
+        while i < len(line):
+            if line[i].isspace():
+                break
+            i += 1
+        if i == 1:
+            raise SyntaxError('Directive must start with a name', parser)
+        directive = Directive(line[1:i])
+        directive.set_content(line[i:].lstrip().rstrip('\n'))
+        return directive
+
 
 class Node:
     def __init__(self, name, outer=0, inner=None, parser=None, linenum=None):
@@ -538,6 +551,73 @@ class AttributeParser:
                     raise SyntaxError('Invalid character in attribute list', self)
 
 
+class DirectiveIncludeParser:
+    def __init__(self, parent):
+        self.parent = parent
+        self._start = True
+
+    def parse_file(self, filename):
+        self.filename = filename
+        self.absfilename = os.path.join(os.path.dirname(self.parent.absfilename),
+                                        filename)
+        if isinstance(self.parent, DuckParser):
+            self._parentfiles = [self.parent.absfilename, self.absfilename]
+        else:
+            self._parentfiles = self.parent._parentfiles + [self.absfilename]
+        self.linenum = 0
+        fd = open(self.absfilename, encoding='utf-8')
+        for line in fd:
+            self.parse_line(line)
+        fd.close()
+
+    def parse_line(self, line):
+        self.linenum += 1
+        if line.strip() == '':
+            return
+        if not(line.startswith('@')):
+            raise SyntaxError('Directive includes can only include directives', self)
+        self._parse_line(line)
+
+    def take_directive(self, directive):
+        if directive.name.startswith('ducktype/'):
+            if not self._start:
+                raise SyntaxError('Ducktype declaration must be first', self)
+            if directive.name != 'ducktype/1.0':
+                raise SyntaxError(
+                    'Unsupported ducktype version: ' + directive.name ,
+                    self)
+            for value in directive.content.split():
+                raise SyntaxError(
+                    'Unsupported ducktype extension: ' + value,
+                    self)
+        elif directive.name == 'define':
+            try:
+                self.parent.take_directive(directive)
+            except SyntaxError as e:
+                raise SyntaxError(e.message, self)
+        elif directive.name == 'encoding':
+            FIXME('encoding')
+        elif directive.name == 'include':
+            absfile = os.path.join(os.path.dirname(self.absfilename),
+                                   directive.content)
+            if absfile in self._parentfiles:
+                raise SyntaxError('Recursive include detected: ' + directive.content, self)
+            incparser = DirectiveIncludeParser(self)
+            incparser.parse_file(directive.content)
+        elif directive.name == 'namespace':
+            try:
+                self.parent.take_directive(directive)
+            except SyntaxError as e:
+                raise SyntaxError(e.message, self)
+        else:
+            raise SyntaxError('Unrecognized directive: ' + directive.name, self)
+        self._start = False
+
+    def _parse_line(self, line):
+        directive = Directive.parse_line(line, self)
+        self.take_directive(directive)
+
+
 class DuckParser:
     STATE_START = 1
     STATE_TOP = 2
@@ -598,6 +678,7 @@ class DuckParser:
 
     def parse_file(self, filename):
         self.filename = filename
+        self.absfilename = os.path.abspath(filename)
         self._defaultid = os.path.basename(filename)
         if self._defaultid.endswith('.duck'):
             self._defaultid = self._defaultid[:-5]
@@ -622,6 +703,43 @@ class DuckParser:
                 self.parse_inline(child)
                 newchildren.append(child)
         node.children = newchildren
+
+    def take_directive(self, directive):
+        if directive.name.startswith('ducktype/'):
+            if self.state != DuckParser.STATE_START:
+                raise SyntaxError('Ducktype declaration must be first', self)
+            if directive.name != 'ducktype/1.0':
+                raise SyntaxError(
+                    'Unsupported ducktype version: ' + directive.name ,
+                    self)
+            for value in directive.content.split():
+                raise SyntaxError(
+                    'Unsupported ducktype extension: ' + value,
+                    self)
+        elif directive.name == 'define':
+            values = directive.content.split(maxsplit=1)
+            if len(values) != 2:
+                raise SyntaxError(
+                    'Entity definition takes exactly two values',
+                    self)
+            self.current.add_definition(*values)
+        elif directive.name == 'encoding':
+            FIXME('encoding')
+        elif directive.name == 'include':
+            incparser = DirectiveIncludeParser(self)
+            incparser.parse_file(directive.content)
+        elif directive.name == 'namespace':
+            values = directive.content.split(maxsplit=1)
+            if len(values) != 2:
+                raise SyntaxError(
+                    'Namespace declaration takes exactly two values',
+                    self)
+            if values[0] == 'xml':
+                if values[1] != 'http://www.w3.org/XML/1998/namespace':
+                    raise SyntaxError('Wrong value of xml namespace prefix', self)
+            self.current.add_namespace(*values)
+        else:
+            raise SyntaxError('Unrecognized directive: ' + directive.name, self)
 
     def finish(self):
         if (self.state in (DuckParser.STATE_HEADER_ATTR, DuckParser.STATE_BLOCK_ATTR) or
@@ -695,49 +813,8 @@ class DuckParser:
             raise SyntaxError('Missing page header', self)
 
     def _parse_line_directive(self, line):
-        i = 1
-        while i < len(line):
-            if line[i].isspace():
-                break
-            i += 1
-        if i == 1:
-            raise SyntaxError('Directive must start with a name', self)
-        directive = Directive(line[1:i])
-        directive.set_content(line[i:].lstrip().rstrip('\n'))
-
-        if directive.name.startswith('ducktype/'):
-            if self.state != DuckParser.STATE_START:
-                raise SyntaxError('Ducktype declaration must be first', self)
-            if directive.name != 'ducktype/1.0':
-                raise SyntaxError(
-                    'Unsupported ducktype version ' + directive.name ,
-                    self)
-            for value in directive.content.split():
-                raise SyntaxError(
-                    'Unsupported ducktype extension ' + value,
-                    self)
-        elif directive.name == 'encoding':
-            FIXME('encoding')
-        elif directive.name == 'namespace':
-            values = directive.content.split(maxsplit=1)
-            if len(values) != 2:
-                raise SyntaxError(
-                    'Namespace declaration takes exactly two values',
-                    self)
-            if values[0] == 'xml':
-                if values[1] != 'http://www.w3.org/XML/1998/namespace':
-                    raise SyntaxError('Wrong value of xml namespace prefix', self)
-            self.current.add_namespace(*values)
-        elif directive.name == 'define':
-            values = directive.content.split(maxsplit=1)
-            if len(values) != 2:
-                raise SyntaxError(
-                    'Entity definition takes exactly two values',
-                    self)
-            self.current.add_definition(*values)
-        else:
-            # FIXME: unknown directive
-            pass
+        directive = Directive.parse_line(line, self)
+        self.take_directive(directive)
         if self.state == DuckParser.STATE_START:
             self.state == DuckParser.STATE_TOP
 
@@ -964,7 +1041,7 @@ class DuckParser:
     def _parse_line_block(self, line):
         # Blank lines close off elements that have inline content (leaf)
         # unless they're verbatim elements that have an inner indent. Only
-       # decreasing indent can break free of those. They also break out of
+        # decreasing indent can break free of those. They also break out of
         # unindented block container elements, except for a set of special
         # elements that take lists of things instead of general blocks.
         if line.strip() == '':

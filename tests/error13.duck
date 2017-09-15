@@ -1,4 +1,4 @@
-@foo=bar
+@define foo bar
 
 @ducktype/1.0
 

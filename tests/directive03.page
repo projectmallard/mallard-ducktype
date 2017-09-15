@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/if/1.0/" id="directive03">
+ <title>Directive Test</title>
+ <if:if test="target:html">
+  <p>This is a test of directives.</p>
+ </if:if>
+</page>

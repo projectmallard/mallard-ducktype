@@ -1,0 +1,6 @@
+@ducktype/1.0
+@include directive08-1.txt
+
+= Directive Test
+
+This is a test of $directives;.
