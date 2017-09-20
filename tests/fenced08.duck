@@ -1,0 +1,10 @@
+= Fenced Test
+
+This tests fenced blocks.
+
+[code]
+  [[[
+  This sets the indent strip level.
+    This should be indented by 2.
+ This is an anomoloy, but should be at column 0.
+]]]

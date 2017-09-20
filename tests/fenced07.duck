@@ -1,0 +1,11 @@
+= Fenced Test
+
+This tests fenced blocks.
+
+[code]
+  [[[
+  <note>
+  <p>This is some code.
+  This is some more code.</p>
+  </note>
+]]]

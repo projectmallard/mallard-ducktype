@@ -1,0 +1,7 @@
+= Fenced Test
+
+This tests fenced blocks.
+
+[code]
+[[[This is some $code(code).]]]
+[[[This is some more code.]]]

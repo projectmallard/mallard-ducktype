@@ -1,0 +1,7 @@
+= Fenced Test
+
+This tests fenced blocks.
+
+[[[
+This gets a paragraph.
+]]]

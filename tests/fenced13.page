@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="fenced13">
+ <title>Fenced Test</title>
+ <p>This tests fenced blocks.</p>
+ <note>
+  <p>This is a paragraph in a note.
+  This is the same paragraph.
+So is this, but without indent.</p>
+ </note>
+</page>

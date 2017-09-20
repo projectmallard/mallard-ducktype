@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="fenced14">
+ <title>Fenced Test</title>
+ <p>This tests fenced blocks.</p>
+ <note>
+  <p>This is a paragraph in a note.
+  This is the same paragraph.
+  This is still in that paragraph.</p>
+  <p>This is a new paragraph in the note.</p>
+ </note>
+</page>

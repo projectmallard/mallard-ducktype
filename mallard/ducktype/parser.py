@@ -31,6 +31,11 @@ def FIXME(msg=None):
     else:
         print('FIXME')
 
+def _get_indent(line):
+    for i in range(len(line)):
+        if line[i] != ' ':
+            return i
+
 def _escape_xml_attr(s):
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('"', '&quot;')
 
@@ -174,23 +179,27 @@ class Node:
         self._depth = node._depth + 1
 
     def add_child(self, child):
+        if isinstance(child, str):
+            self.add_text(child)
+            return
         if self._softbreak:
-            self.children[-1] += '\n'
+            if len(self.children) > 0:
+                self.children[-1] += '\n'
             self._softbreak = False
         self.children.append(child)
         child.parent = self
 
-    def add_text(self, text, raw=False):
+    def add_text(self, text):
         # We don't add newlines when we see them. Instead, we record that
         # we saw one with _softbreak and output the newline if we add
         # something afterwards. This prevents pesky trailing newlines on
-        # text in block elements. When parsing things like external defs,
-        # though, we don't collapse trailing newlines. That's what the
-        # raw param is for.
+        # text in block elements. But we only do newline mangling at the
+        # block parse phase, so don't bother if self is an Inline.
         if self._softbreak:
-            self.children[-1] += '\n'
+            if len(self.children) > 0:
+                self.children[-1] += '\n'
             self._softbreak = False
-        if not raw and text.endswith('\n'):
+        if not isinstance(self, Inline) and text.endswith('\n'):
             text = text[:-1]
             self._softbreak = True
         if len(self.children) > 0 and isinstance(self.children[-1], str):
@@ -255,23 +264,30 @@ class Node:
             child = self.children[i]
             if isinstance(child, Inline):
                 child._write_xml(fd, depth=depth, verbatim=verbatim)
+            elif isinstance(child, Fence):
+                child._write_xml(fd, depth=depth, verbatim=verbatim)
+                if i + 1 < len(self.children):
+                    fd.write('\n')
             elif isinstance(child, Node):
                 child._write_xml(fd, depth=depth+1, verbatim=verbatim)
-            elif '\n' in child:
-                nl = child.find('\n')
-                while nl >= 0:
-                    if nl + 1 == len(child) and i + 1 == len(self.children):
-                        fd.write(_escape_xml(child[:nl]))
-                    elif verbatim or (nl + 1 < len(child) and child[nl + 1] == '\n'):
-                        fd.write(_escape_xml(child[:nl]) + '\n')
-                    else:
-                        fd.write(_escape_xml(child[:nl]) + '\n' + (' ' * depth))
-                    child = child[nl + 1:]
-                    nl = child.find('\n')
-                if child != '':
-                    fd.write(_escape_xml(child))
             else:
-                fd.write(_escape_xml(child))
+                if i > 0 and isinstance(self.children[i-1], Fence):
+                    fd.write(' ' * depth)
+                if '\n' in child:
+                    nl = child.find('\n')
+                    while nl >= 0:
+                        if nl + 1 == len(child) and i + 1 == len(self.children):
+                            fd.write(_escape_xml(child[:nl]))
+                        elif verbatim or (nl + 1 < len(child) and child[nl + 1] == '\n'):
+                            fd.write(_escape_xml(child[:nl]) + '\n')
+                        else:
+                            fd.write(_escape_xml(child[:nl]) + '\n' + (' ' * depth))
+                        child = child[nl + 1:]
+                        nl = child.find('\n')
+                    if child != '':
+                        fd.write(_escape_xml(child))
+                else:
+                    fd.write(_escape_xml(child))
         if not self.is_empty:
             if isinstance(self, Inline):
                 fd.write('</' + self.name + '>')
@@ -293,6 +309,30 @@ class Inline(Node):
     pass
 
 
+class Fence(Node):
+    def add_line(self, line):
+        self.add_text(line)
+        return
+        indent = _get_indent(line)
+        if len(self.children) == 0:
+            self.inner = indent
+            self.children.append('')
+        self.children[0] += line[min(indent, self.inner):]
+        if not line.endswith('\n'):
+            self.children[0] += '\n'
+
+    def _write_xml(self, fd, *, depth=0, verbatim=False):
+        lines = self.children[0].split('\n')
+        firstindent = _get_indent(lines[0])
+
+        for i in range(len(lines)):
+            line = lines[i]
+            indent = _get_indent(line)
+            if i != 0:
+                fd.write('\n')
+            fd.write(_escape_xml(line[min(indent, firstindent):]))
+
+
 class SyntaxError(Exception):
     def __init__(self, message, parser):
         self.message = message
@@ -309,14 +349,13 @@ class SyntaxError(Exception):
 
 
 class InlineParser:
-    def __init__(self, parent, linenum=1, raw=False):
+    def __init__(self, parent, linenum=1):
         # Dummy node just to hold children while we parse
         self.current = Inline('_', linenum=linenum)
         self.document = parent.document
         self.filename = parent.filename
         self.linenum = linenum
         self._parent = parent
-        self._raw = raw
 
     def lookup_entity(self, entity):
         return self._parent.lookup_entity(entity)
@@ -336,7 +375,7 @@ class InlineParser:
                     parens[-1] -= 1
                     cur += 1
                 else:
-                    self.current.add_text(text[start:cur], raw=self._raw)
+                    self.current.add_text(text[start:cur])
                     self.current = self.current.parent
                     parens.pop()
                     cur += 1
@@ -346,10 +385,10 @@ class InlineParser:
                 cur += 1
             elif cur == len(text) - 1:
                 cur += 1
-                self.current.add_text(text[start:cur], raw=self._raw)
+                self.current.add_text(text[start:cur])
             elif text[cur] == '$' and text[cur + 1] in _escaped_chars:
-                self.current.add_text(text[start:cur], raw=self._raw)
-                self.current.add_text(text[cur + 1], raw=self._raw)
+                self.current.add_text(text[start:cur])
+                self.current.add_text(text[cur + 1])
                 cur += 2
                 start = cur
             elif text[cur] == '$' and _isnmtoken(text[cur + 1]):
@@ -359,26 +398,25 @@ class InlineParser:
                         break
                     end += 1
                 if end == len(text):
-                    self.current.add_text(text[start:end], raw=self._raw)
+                    self.current.add_text(text[start:end])
                     cur = end
                 elif text[end] == ';':
-                    self.current.add_text(text[start:cur], raw=self._raw)
+                    self.current.add_text(text[start:cur])
                     entname = text[cur + 1:end]
                     entval = self._parent.lookup_entity(entname)
                     if entval is not None:
                         parser = InlineParser(self,
-                                              linenum=self.current.linenum,
-                                              raw=True)
+                                              linenum=self.current.linenum)
                         for child in parser.parse_text(entval):
                             if isinstance(child, str):
-                                self.current.add_text(child, raw=True)
+                                self.current.add_text(child)
                             else:
                                 self.current.add_child(child)
                     else:
                         raise SyntaxError('Unrecognized entity: ' + entname, self)
                     start = cur = end + 1
                 elif text[end] == '[':
-                    self.current.add_text(text[start:cur], raw=self._raw)
+                    self.current.add_text(text[start:cur])
                     node = Inline(text[cur + 1:end], parser=self)
                     self.current.add_child(node)
                     attrparser = AttributeParser(self)
@@ -397,7 +435,7 @@ class InlineParser:
                         parens.append(0)
                         start = cur = cur + 1
                 elif text[end] == '(':
-                    self.current.add_text(text[start:cur], raw=self._raw)
+                    self.current.add_text(text[start:cur])
                     node = Inline(text[cur + 1:end], parser=self)
                     self.current.add_child(node)
                     self.current = node
@@ -578,7 +616,7 @@ class DirectiveIncludeParser:
             if line.strip() == '--]':
                 self._comment = False
             return
-        indent = DuckParser._get_indent(self, line)
+        indent = _get_indent(line)
         iline = line[indent:]
         if iline.startswith('[-]'):
             return
@@ -664,6 +702,7 @@ class DuckParser:
         self._attrparser = None
         self._defaultid = None
         self._comment = False
+        self._fenced = False
 
     def lookup_entity(self, entity):
         cur = self.current
@@ -708,11 +747,30 @@ class DuckParser:
     def parse_inline(self, node=None):
         if node is None:
             node = self.document
+        oldchildren = node.children
+        node.children = []
+        for child in oldchildren:
+            if isinstance(child, str):
+                parser = InlineParser(self, linenum=node.linenum)
+                for c in parser.parse_text(child):
+                    node.add_child(c)
+            elif isinstance(child, Fence):
+                node.add_child(child)
+            else:
+                self.parse_inline(child)
+                node.add_child(child)
+        return
         newchildren = []
         for child in node.children:
             if isinstance(child, str):
                 parser = InlineParser(self, linenum=node.linenum)
                 newchildren.extend(parser.parse_text(child))
+            elif isinstance(child, Fence):
+                if len(newchildren) > 0:
+                    if (isinstance(newchildren[-1], str) and
+                        not newchildren[-1].endswith('\n')):
+                        newchildren[-1] += '\n'
+                newchildren.append(child)
             else:
                 self.parse_inline(child)
                 newchildren.append(child)
@@ -772,7 +830,15 @@ class DuckParser:
             if line.strip() == '--]':
                 self._comment = False
             return
-        indent = self._get_indent(line)
+        if self._fenced:
+            if line.strip() == ']]]':
+                self._fenced = False
+                self.current = self.current.parent
+            else:
+                self.current.add_line(line)
+            return
+
+        indent = _get_indent(line)
         iline = line[indent:]
         if iline.startswith('[-]'):
             return
@@ -833,7 +899,7 @@ class DuckParser:
             self.state == DuckParser.STATE_TOP
 
     def _parse_line_header(self, line):
-        indent = self._get_indent(line)
+        indent = _get_indent(line)
         iline = line[indent:]
         if iline.startswith('@'):
             self._push_value()
@@ -867,7 +933,7 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_subheader(self, line):
-        indent = self._get_indent(line)
+        indent = _get_indent(line)
         iline = line[indent:]
         if iline.startswith('@'):
             self._push_value()
@@ -895,7 +961,7 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_header_attr_start(self, line):
-        indent = self._get_indent(line)
+        indent = _get_indent(line)
         if indent > 0 and line[indent:].startswith('['):
             self._push_value()
             self.current = self.current.parent
@@ -953,7 +1019,7 @@ class DuckParser:
                     self.info_state = DuckParser.INFO_STATE_INFO
             return
 
-        indent = self._get_indent(line)
+        indent = _get_indent(line)
         if self.current.info is None:
             self.current.info = Block('info', indent, indent, parser=self)
             self.curinfo = self.current.info
@@ -1107,7 +1173,7 @@ class DuckParser:
         # this still might not be the right level. We may or may not be
         # able to add children to a block at the same indent, but we'll
         # handle that later, because it depends on stuff.
-        indent = self._get_indent(line)
+        indent = _get_indent(line)
         if indent < self.current.inner:
             self._push_value()
             while (not self.current.is_division) and self.current.inner > indent:
@@ -1117,7 +1183,31 @@ class DuckParser:
             iline = line[self.current.inner:]
         else:
             iline = line[indent:]
-        if iline.startswith('['):
+
+        if iline.startswith('[[['):
+            self._push_value()
+            node = Fence('_', indent, parser=self)
+
+            if not (self.current.is_leaf or self.current.is_external):
+                while (not self.current.is_division and (
+                        not self.current.available and
+                        self.current.outer == indent)):
+                    self.current = self.current.parent
+                pnode = Block('p', indent, parser=self)
+                self.current.add_child(pnode)
+                pnode.add_child(node)
+            else:
+                self.current.add_child(node)
+
+            sline = iline.strip()[3:]
+            if sline.endswith(']]]'):
+                node.add_line(sline[:-3] + '\n')
+            else:
+                if sline.strip() != '':
+                    node.add_line(sline + '\n')
+                self.current = node
+                self._fenced = True
+        elif iline.startswith('['):
             # Start a block with a standard block declaration.
             self._push_value()
             while (not self.current.is_division and (
@@ -1269,7 +1359,7 @@ class DuckParser:
             self._attrparser = None
 
     def _parse_line_block_ready(self, line):
-        indent = self._get_indent(line)
+        indent = _get_indent(line)
         if indent < self.current.outer:
             while ((not self.current.is_division) and
                    (self.current.outer > indent)):
@@ -1277,14 +1367,9 @@ class DuckParser:
         else:
             if line.lstrip().startswith('@'):
                 self.info_state = DuckParser.INFO_STATE_INFO
-            self.current.inner = self._get_indent(line)
+            self.current.inner = _get_indent(line)
         self.state = DuckParser.STATE_BLOCK
         self._parse_line(line)
-
-    def _get_indent(self, line):
-        for i in range(len(line)):
-            if line[i] != ' ':
-                return i
 
     def _push_value(self):
         if self._value != '':

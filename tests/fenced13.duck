@@ -1,0 +1,10 @@
+= Fenced Test
+
+This tests fenced blocks.
+
+[note]
+  This is a paragraph in a note.
+  [[[
+  This is the same paragraph.
+So is this, but without indent.
+]]]
