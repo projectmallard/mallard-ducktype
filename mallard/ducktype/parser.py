@@ -749,6 +749,8 @@ class DuckParser:
             node = self.document
         oldchildren = node.children
         node.children = []
+        if node.info is not None:
+            self.parse_inline(node.info)
         for child in oldchildren:
             if isinstance(child, str):
                 parser = InlineParser(self, linenum=node.linenum)
