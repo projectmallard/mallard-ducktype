@@ -271,7 +271,7 @@ class Node:
             elif isinstance(child, Node):
                 child._write_xml(fd, depth=depth+1, verbatim=verbatim)
             else:
-                if i > 0 and isinstance(self.children[i-1], Fence):
+                if i > 0 and isinstance(self.children[i-1], Fence) and not verbatim:
                     fd.write(' ' * depth)
                 if '\n' in child:
                     nl = child.find('\n')
@@ -759,22 +759,6 @@ class DuckParser:
             else:
                 self.parse_inline(child)
                 node.add_child(child)
-        return
-        newchildren = []
-        for child in node.children:
-            if isinstance(child, str):
-                parser = InlineParser(self, linenum=node.linenum)
-                newchildren.extend(parser.parse_text(child))
-            elif isinstance(child, Fence):
-                if len(newchildren) > 0:
-                    if (isinstance(newchildren[-1], str) and
-                        not newchildren[-1].endswith('\n')):
-                        newchildren[-1] += '\n'
-                newchildren.append(child)
-            else:
-                self.parse_inline(child)
-                newchildren.append(child)
-        node.children = newchildren
 
     def take_directive(self, directive):
         if directive.name.startswith('ducktype/'):
