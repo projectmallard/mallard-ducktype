@@ -35,6 +35,7 @@ def _get_indent(line):
     for i in range(len(line)):
         if line[i] != ' ':
             return i
+    return 0
 
 def _escape_xml_attr(s):
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('"', '&quot;')
