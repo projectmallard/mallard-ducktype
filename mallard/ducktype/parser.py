@@ -132,7 +132,7 @@ class Node:
 
     @property
     def is_leaf(self):
-        leafs = ('p', 'screen', 'code', 'title', 'subtitle', 'desc', 'cite', 'name', 'email')
+        leafs = ('p', 'screen', 'code', 'title', 'subtitle', 'desc', 'cite', 'name', 'email', 'years')
         if self.name in leafs:
             return True
         if self.nsprefix is not None:
