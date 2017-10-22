@@ -587,7 +587,8 @@ class AttributeParser:
                     self.attributes.add_attribute('type', value)
                     i = j
                 else:
-                    raise SyntaxError('Invalid character in attribute list', self)
+                    raise SyntaxError('Invalid character ' + line[j] +
+                                      ' in attribute list', self)
 
 
 class DirectiveIncludeParser:
@@ -605,7 +606,10 @@ class DirectiveIncludeParser:
         else:
             self._parentfiles = self.parent._parentfiles + [self.absfilename]
         self.linenum = 0
-        fd = open(self.absfilename, encoding='utf-8')
+        try:
+            fd = open(self.absfilename, encoding='utf-8')
+        except:
+            raise SyntaxError('Missing included file ' + filename, self.parent)
         for line in fd:
             self.parse_line(line)
         fd.close()
