@@ -21,6 +21,7 @@
 import collections
 import os
 import sys
+import urllib.parse
 
 from . import entities
 
@@ -655,12 +656,14 @@ class DirectiveIncludeParser:
         elif directive.name == 'encoding':
             FIXME('encoding')
         elif directive.name == 'include':
-            absfile = os.path.join(os.path.dirname(self.absfilename),
-                                   directive.content)
+            if ' ' in directive.content:
+                raise SyntaxError('Multiple values in include. URL encode file name?', self)
+            relfile = urllib.parse.unquote(directive.content)
+            absfile = os.path.join(os.path.dirname(self.absfilename), relfile)
             if absfile in self._parentfiles:
                 raise SyntaxError('Recursive include detected: ' + directive.content, self)
             incparser = DirectiveIncludeParser(self)
-            incparser.parse_file(directive.content)
+            incparser.parse_file(relfile)
         elif directive.name == 'namespace':
             try:
                 self.parent.take_directive(directive)
@@ -789,8 +792,11 @@ class DuckParser:
         elif directive.name == 'encoding':
             FIXME('encoding')
         elif directive.name == 'include':
+            if ' ' in directive.content:
+                raise SyntaxError('Multiple values in include. URL encode file name?', self)
+            relfile = urllib.parse.unquote(directive.content)
             incparser = DirectiveIncludeParser(self)
-            incparser.parse_file(directive.content)
+            incparser.parse_file(relfile)
         elif directive.name == 'namespace':
             values = directive.content.split(maxsplit=1)
             if len(values) != 2:
@@ -860,6 +866,8 @@ class DuckParser:
             self._parse_line_header_attr(line)
         elif self.state == DuckParser.STATE_HEADER_ATTR_POST:
             self._parse_line_header_attr_post(line)
+        elif self.state == DuckParser.STATE_HEADER_INFO:
+            self._parse_line_header_info(line)
         elif self.state == DuckParser.STATE_BLOCK:
             self._parse_line_block(line)
         elif self.state == DuckParser.STATE_BLOCK_ATTR:
@@ -898,7 +906,7 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
-        elif indent >= 0 and iline.startswith('['):
+        elif indent > 0 and iline.startswith('['):
             self._parse_line_header_attr_start(line)
         elif indent >= self.current.inner:
             self._value += line[self.current.inner:]
@@ -919,6 +927,8 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
+        elif line.strip() == '':
+            self.state = DuckParser.STATE_HEADER_INFO
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
@@ -932,7 +942,7 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
-        elif indent >= 0 and iline.startswith('['):
+        elif indent > 0 and iline.startswith('['):
             self._parse_line_header_attr_start(line)
         elif indent >= self.current.inner:
             self._value += line[self.current.inner:]
@@ -947,6 +957,8 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
+        elif line.strip() == '':
+            self.state = DuckParser.STATE_HEADER_INFO
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
@@ -982,6 +994,17 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
+        else:
+            self.state = DuckParser.STATE_BLOCK
+            self._parse_line(line)
+
+    def _parse_line_header_info(self, line):
+        if line.lstrip().startswith('@'):
+            self.state = DuckParser.STATE_BLOCK
+            self.info_state = DuckParser.INFO_STATE_INFO
+            self._parse_line(line)
+        elif line.strip() == '':
+            self.state = DuckParser.STATE_HEADER_INFO
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
