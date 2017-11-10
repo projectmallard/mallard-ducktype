@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="info32">
+ <info>
+  <desc>Test of info elements.</desc>
+ </info>
+ <title>Info Test</title>
+ <p>Info elements can have a blank line before them.</p>
+</page>
