@@ -1,0 +1,6 @@
+@ducktype/1.0
+@define mallard http://projectmallard.org/
+
+= Definition Test
+
+Read more about $link[>>$mallard;](Mallard).

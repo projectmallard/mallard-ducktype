@@ -1,0 +1,6 @@
+@ducktype/1.0
+@define b strong
+
+= Definition Test
+
+This is $em[.$b;](bold).
