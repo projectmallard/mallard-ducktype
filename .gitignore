@@ -2,4 +2,5 @@
 /build/
 /dist/
 /ducktype.egg-info/
+/tests/*.out
 __pycache__/
