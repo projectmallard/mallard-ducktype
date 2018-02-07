@@ -144,6 +144,25 @@ class Node:
         return False
 
     @property
+    def is_tree_item(self):
+        if self.name != 'item':
+            return False
+        cur = self
+        while cur.name == 'item':
+            cur = cur.parent
+        if cur.name == 'tree':
+            return True
+        return False
+
+    @property
+    def has_tree_items(self):
+        if self.is_tree_item:
+            for item in self.children:
+                if isinstance(item, Node) and item.name == 'item':
+                    return True
+        return False
+
+    @property
     def is_external_leaf(self):
         if not self.is_external:
             return False
@@ -282,6 +301,10 @@ class Node:
                             fd.write(_escape_xml(child[:nl]))
                         elif verbatim or (nl + 1 < len(child) and child[nl + 1] == '\n'):
                             fd.write(_escape_xml(child[:nl]) + '\n')
+                        elif self.is_tree_item:
+                            fd.write(_escape_xml(child[:nl]) + '\n')
+                            if nl + 1 < len(child):
+                                fd.write(' ' * (depth + 1))
                         else:
                             fd.write(_escape_xml(child[:nl]) + '\n' + (' ' * depth))
                         child = child[nl + 1:]
@@ -295,6 +318,11 @@ class Node:
                 fd.write('</' + self.name + '>')
             elif self.is_leaf or self.is_external_leaf:
                 fd.write('</' + self.name + '>\n')
+            elif self.is_tree_item:
+                if self.has_tree_items:
+                    fd.write((' ' * depth) + '</' + self.name + '>\n')
+                else:
+                    fd.write('</' + self.name + '>\n')
             else:
                 fd.write((' ' * depth) + '</' + self.name + '>\n')
 
@@ -1202,7 +1230,11 @@ class DuckParser:
             self._push_value()
             node = Fence('_', indent, parser=self)
 
-            if not (self.current.is_leaf or self.current.is_external):
+            if not (self.current.is_leaf or self.current.is_external or
+                    (self.current.is_tree_item and not self.current.has_tree_items)):
+                if self.current.is_tree_item:
+                    while self.current.name in ('tree', 'item'):
+                        self.current = self.current.parent
                 while (not self.current.is_division and (
                         not self.current.available and
                         self.current.outer == indent)):
@@ -1237,6 +1269,9 @@ class DuckParser:
             # Now we unravel a bit more. We do not want current to be
             # at the same indent level, unless one of a number of special
             # case conditions is met.
+            if self.current.is_tree_item:
+                while self.current.name in ('tree', 'item'):
+                    self.current = self.current.parent
             while (not self.current.is_division and (
                     not self.current.available and
                     self.current.outer == indent)):
@@ -1273,7 +1308,11 @@ class DuckParser:
             self._parse_line_block_item_title(iline, indent)
         elif iline.startswith('* '):
             self._parse_line_block_item_content(iline, indent)
-        elif not (self.current.is_leaf or self.current.is_external):
+        elif not (self.current.is_leaf or self.current.is_external or
+                  (self.current.is_tree_item and not self.current.has_tree_items)):
+            if self.current.is_tree_item:
+                while self.current.name in ('tree', 'item'):
+                    self.current = self.current.parent
             while (not self.current.is_division and (
                     not self.current.available and
                     self.current.outer == indent)):
@@ -1336,6 +1375,8 @@ class DuckParser:
         self._push_value()
         while ((not self.current.is_division) and
                (self.current.is_leaf or self.current.outer > indent)):
+            if self.current.is_tree_item:
+                break
             self.current = self.current.parent
 
         if self.current.name == 'tr':
@@ -1350,8 +1391,11 @@ class DuckParser:
                 raise SyntaxError('Missing item title in terms', self)
             self.current = self.current.children[-1]
             self._parse_line((' ' * self.current.inner) + iline[2:])
-        elif self.current.name == 'tree':
-            FIXME(self.current.name)
+        elif self.current.name == 'tree' or self.current.is_tree_item:
+            item = Block('item', indent, indent + 2, parser=self)
+            self.current.add_child(item)
+            self.current = item
+            self._parse_line((' ' * item.inner) + iline[2:])
         elif self.current.name in ('list', 'steps'):
             item = Block('item', indent, indent + 2, parser=self)
             self.current.add_child(item)

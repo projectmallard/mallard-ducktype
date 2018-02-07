@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="list13">
+ <title>List Test</title>
+ <tree>
+  <item>List item 1</item>
+  <item>List item 2
+   <item>Sublist item 1</item>
+   <item>Sublist item 2
+    <item>Subsublist item 1</item>
+    <item>Subsublist item 2</item>
+   </item>
+  </item>
+  <item>List item 3</item>
+ </tree>
+</page>
