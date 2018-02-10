@@ -1,0 +1,4 @@
+@namespace if http://projectmallard.org/1.0/
+
+[if:if test="target:html"]
+  This is a conditional.

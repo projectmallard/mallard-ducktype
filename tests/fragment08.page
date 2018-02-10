@@ -1,0 +1,8 @@
+<section xmlns="http://projectmallard.org/1.0/">
+ <title>First Section</title>
+ <p>This is a paragraph.</p>
+</section>
+<section xmlns="http://projectmallard.org/1.0/">
+ <title>Seconed Section</title>
+ <p>This is another paragraph.</p>
+</section>

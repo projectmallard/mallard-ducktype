@@ -1,0 +1,7 @@
+[note]
+  This is a note.
+
+  [example]
+    This is an example in a note.
+
+    * This is a list item in an example in a note.

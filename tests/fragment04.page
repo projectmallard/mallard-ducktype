@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<list xmlns="http://projectmallard.org/1.0/">
+ <item>
+  <p>This is a list item.</p>
+ </item>
+ <item>
+  <p>This is a second list item.</p>
+  <note>
+   <p>This is a note.</p>
+  </note>
+ </item>
+ <item>
+  <p>This is a third list item.</p>
+ </item>
+</list>

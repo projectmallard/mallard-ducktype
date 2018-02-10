@@ -1,0 +1,7 @@
+@namespace if http://projectmallard.org/1.0/
+
+  [if:if test="target:html"]
+    This conditional is indented.
+
+[note]
+This note is not indented.

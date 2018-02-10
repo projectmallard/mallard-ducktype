@@ -1,0 +1,6 @@
+<note xmlns="http://projectmallard.org/1.0/">
+ <p>This note is indented.</p>
+</note>
+<note xmlns="http://projectmallard.org/1.0/">
+ <p>This note is not indented.</p>
+</note>

@@ -1,0 +1,6 @@
+<note xmlns="http://projectmallard.org/1.0/">
+ <p>This is a note.</p>
+</note>
+<note xmlns="http://projectmallard.org/1.0/">
+ <p>This is another note.</p>
+</note>

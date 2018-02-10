@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<section xmlns="http://projectmallard.org/1.0/">
+ <title>Section Title</title>
+ <section>
+  <title>First Subsection</title>
+ </section>
+ <section>
+  <title>Second Subsection</title>
+ </section>
+</section>

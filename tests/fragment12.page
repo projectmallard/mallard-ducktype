@@ -1,0 +1,6 @@
+<if:if xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/1.0/" test="target:html">
+ <p>This conditional is indented.</p>
+</if:if>
+<note xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/1.0/">
+ <p>This note is not indented.</p>
+</note>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<if:if xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/1.0/" test="target:html">
+ <p>This is a conditional.</p>
+</if:if>

@@ -102,6 +102,7 @@ class Node:
         self.nsprefix = None
         self.nsuri = None
         self.localname = name
+        self.default_namespace = None
         self.is_external = False
         if ':' in name:
             self.nsprefix = name[:name.index(':')]
@@ -257,13 +258,11 @@ class Node:
 
     def _write_xml(self, fd, *, depth=0, verbatim=False):
         verbatim = verbatim or self.is_verbatim
-        if self.name == 'page':
-            fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
         if not isinstance(self, Inline):
             fd.write(' ' * depth)
         fd.write('<' + self.name)
-        if self.name == 'page':
-            fd.write(' xmlns="http://projectmallard.org/1.0/"')
+        if self.default_namespace is not None:
+            fd.write(' xmlns="' + self.default_namespace + '"')
         for prefix in self._namespaces:
             fd.write(' xmlns:' + prefix + '="' + self._namespaces[prefix] + '"')
         if self.attributes is not None:
@@ -325,6 +324,29 @@ class Node:
                     fd.write('</' + self.name + '>\n')
             else:
                 fd.write((' ' * depth) + '</' + self.name + '>\n')
+
+
+class Document(Node):
+    def __init__(self, parser=None):
+        Node.__init__(self, '_', parser=parser)
+        self.is_division = True
+        self.default_element = None
+        self.default_namespace = 'http://projectmallard.org/1.0/'
+
+    def _write_xml(self, fd, *args, depth=0, verbatim=False):
+        if self.default_element is not None:
+            fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
+            self.name = self.default_element
+            Node._write_xml(self, fd)
+        else:
+            if len(self.children) == 1:
+                fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
+            for child in self.children:
+                if child.default_namespace is None:
+                    child.default_namespace = self.default_namespace
+                for ns in self._namespaces:
+                    child.add_namespace(ns, self._namespaces[ns])
+                child._write_xml(fd)
 
 
 class Block(Node):
@@ -730,10 +752,10 @@ class DuckParser:
     def __init__(self):
         self.state = DuckParser.STATE_START
         self.info_state = DuckParser.INFO_STATE_NONE
-        self.document = Block('page')
+        self.linenum = 0
+        self.document = Document(parser=self)
         self.current = self.document
         self.curinfo = None
-        self.linenum = 0
         self._value = ''
         self._attrparser = None
         self._defaultid = None
@@ -911,11 +933,15 @@ class DuckParser:
         elif line.startswith('@'):
             self._parse_line_directive(line)
         elif line.startswith('= '):
+            self.document.default_element = 'page'
             self._value = line[2:]
             node = Block('title', 0, 2, parser=self)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_HEADER
+        elif line.strip().startswith('[') or line.startswith('=='):
+            self.state = DuckParser.STATE_BLOCK
+            self._parse_line(line)
         else:
             raise SyntaxError('Missing page header', self)
 
@@ -1064,6 +1090,7 @@ class DuckParser:
         indent = _get_indent(line)
         if self.current.info is None:
             self.current.info = Block('info', indent, indent, parser=self)
+            self.current.info.parent = self.current
             self.curinfo = self.current.info
         if indent < self.current.info.outer:
             self._push_value()
