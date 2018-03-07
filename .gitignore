@@ -1,5 +1,6 @@
 *~
-/__pycache__/
 /build/
 /dist/
 /ducktype.egg-info/
+/tests/*.out
+__pycache__/
