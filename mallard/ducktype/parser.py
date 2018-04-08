@@ -179,13 +179,10 @@ class Node:
 
     @property
     def available(self):
-        if len(self.children) == 0:
-            return True
-        elif len(self.children) == 1:
-            return self.children[0].name == 'title'
-            # FIXME: desc, cite, subtitle?
-        else:
-            return False
+        for child in self.children:
+            if child.name not in ('title', 'desc', 'cite'):
+                return False
+        return True
 
     @property
     def depth(self):

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="block25">
+ <title>Block Test</title>
+ <div>
+  <title>Title</title>
+  <desc>Desc</desc>
+  <cite>Cite</cite>
+  <p>This paragraph is in the div</p>
+ </div>
+</page>
