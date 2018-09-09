@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/if/1.0/" id="if01">
+ <title>If Extension Test</title>
+ <p>This is before the test.</p>
+ <if:if test="target:html">
+  <p>This is displayed in HTML.</p>
+  <p>This is also displayed in HTML.</p>
+ </if:if>
+ <p>This is not conditional.</p>
+</page>

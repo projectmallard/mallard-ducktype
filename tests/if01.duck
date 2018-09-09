@@ -1,0 +1,10 @@
+@ducktype/1.0 if/experimental
+
+= If Extension Test
+
+This is before the test.
+? target:html
+  This is displayed in HTML.
+
+  This is also displayed in HTML.
+This is not conditional.

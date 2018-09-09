@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:test="http://projectmallard.org/test/" id="extension02">
+ <title>Testing</title>
+ <p>This is before the test.</p>
+ <test:TEST line="TESTING 1">
+  <p>This in testing 1.</p>
+ </test:TEST>
+ <test:TEST line="TESTING 2">
+  <p>This in testing 2.</p>
+ </test:TEST>
+</page>

@@ -1,0 +1,8 @@
+@ducktype/1.0 if/experimental
+
+= If Extension Test
+
+? target:html
+This is displayed in HTML.
+
+This is not conditional.

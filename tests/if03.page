@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:if="http://projectmallard.org/if/1.0/" id="if03">
+ <title>If Extension Test</title>
+ <if:choose>
+  <if:when test="target:html">
+   <p>This is displayed in HTML.</p>
+  </if:when>
+  <if:when test="target:pdf">
+   <p>This is displayed in PDF.</p>
+  </if:when>
+  <if:else>
+   <p>This is displayed otherwise.</p>
+  </if:else>
+ </if:choose>
+</page>

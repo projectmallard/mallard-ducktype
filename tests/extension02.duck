@@ -1,0 +1,9 @@
+@ducktype/1.0 _test/block
+
+= Testing
+
+This is before the test.
+*** TESTING 1
+This in testing 1.
+*** TESTING 2
+This in testing 2.

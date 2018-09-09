@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="list17">
+ <title>List Test</title>
+ <terms>
+  <item>
+   <title>Implicit Term</title>
+   <p>This creates an implicit terms element</p>
+  </item>
+ </terms>
+</page>
