@@ -34,13 +34,19 @@ class TestExtension(mallard.ducktype.parser.ParserExtension):
     def __init__(self, parser, prefix, version):
         # Usually you'd use this to specify a version to make sure this code is
         # compatible with what the document expects. In this case, though, we're
-        # using the version to specify which bit of text extension to use.
+        # using the version to specify which parts of the test extension to use.
         if version == 'block':
             self.mode = 'block'
+        elif version == 'directive':
+            self.mode = 'directive'
         else:
             raise mallard.ducktype.parser.SyntaxError(
-                'Unsupported testing extension version: ' + version,
+                'Unsupported _test extension version: ' + version,
                 parser)
+        # It's important to bear in mind that parser might not always be a
+        # DuckParser object. Depending on the extension and where it's used,
+        # parser might be something like a DirectiveIncludeParser or an
+        # InlineParser.
         self.parser = parser
         self.prefix = prefix
         self.version = version
@@ -97,3 +103,33 @@ class TestExtension(mallard.ducktype.parser.ParserExtension):
         # Return True to indicate you have handled the line. The parser will
         # stop trying to do anything else with this line.
         return True
+
+    def take_directive(self, directive):
+        # This is the function to implement to handle parser directives at
+        # the top of a file. This will only be called for directives with
+        # a prefix matching the base name of your extension. For example,
+        # this extension is _test.py, so it will be called for things like:
+        #   @_test:defines
+        #   @_test:frobnicate
+        # It will not be called for things like:
+        #   @test:defines
+        #   @_test_frobnicate
+        if self.mode != 'directive':
+            return False
+
+        if directive.name == '_test:defines':
+            # This extension recognizes a simple directive like this:
+            #   @_test:defines
+            # And treats it like it defined something lengthier. Just add
+            # that definition to the main document, and we're done. For a
+            # directive parser extension, the calling parser might be a
+            # DirectiveIncludeParser instead of a DuckParser. But that's
+            # OK, because DirectiveIncludeParser also has a document
+            # attribute that points to the right place.
+            self.parser.document.add_definition('TEST',
+                                                'This is a $em(test). ' +
+                                                'It is only a $em[.strong](test).')
+            # Return True to tell the parser we handled this directive.
+            return True
+        else:
+            return False

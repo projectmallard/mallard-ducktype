@@ -415,7 +415,10 @@ class ParserExtension:
     def __init__(self, parser, prefix, version):
         pass
 
-    def parse_line(self, line):
+    def parse_line_block(self, line):
+        return False
+
+    def take_directive(self, directive):
         return False
 
 
@@ -664,6 +667,9 @@ class AttributeParser:
 class DirectiveIncludeParser:
     def __init__(self, parent):
         self.parent = parent
+        self.document = parent.document
+        self.extensions = []
+        self.extensions_by_module = {}
         self._start = True
         self._comment = False
 
@@ -714,10 +720,29 @@ class DirectiveIncludeParser:
                     'Unsupported ducktype version: ' + directive.name ,
                     self)
             for value in directive.content.split():
-                # FIXME
-                raise SyntaxError(
-                    'Unsupported ducktype extension: ' + value,
-                    self)
+                try:
+                    prefix, version = value.split('/', maxsplit=1)
+                    extmod = importlib.import_module('mallard.ducktype.extensions.' + prefix)
+                    for extclsname, extcls in inspect.getmembers(extmod, inspect.isclass):
+                        if issubclass(extcls, ParserExtension):
+                            extension = extcls(self, prefix, version)
+                            self.extensions.append(extension)
+                            self.extensions_by_module.setdefault(prefix, [])
+                            self.extensions_by_module[prefix].append(extension)
+                except SyntaxError as e:
+                    raise e
+                except:
+                    raise SyntaxError(
+                        'Unsupported ducktype extension: ' + value,
+                        self)
+        elif ':' in directive.name:
+            prefix, name = directive.name.split(':', maxsplit=1)
+            if prefix not in self.extensions_by_module:
+                raise SyntaxError('Unrecognized directive prefix: ' + prefix, self)
+            for extension in self.extensions_by_module[prefix]:
+                if extension.take_directive(directive):
+                    return
+            raise SyntaxError('Unrecognized directive: ' + directive.name, self)
         elif directive.name == 'define':
             try:
                 self.parent.take_directive(directive)
@@ -777,6 +802,7 @@ class DuckParser:
         self.current = self.document
         self.curinfo = None
         self.extensions = []
+        self.extensions_by_module = {}
         self._text = ''
         self._attrparser = None
         self._defaultid = None
@@ -860,12 +886,22 @@ class DuckParser:
                         if issubclass(extcls, ParserExtension):
                             extension = extcls(self, prefix, version)
                             self.extensions.append(extension)
+                            self.extensions_by_module.setdefault(prefix, [])
+                            self.extensions_by_module[prefix].append(extension)
                 except SyntaxError as e:
                     raise e
                 except:
                     raise SyntaxError(
                         'Unsupported ducktype extension: ' + value,
                         self)
+        elif ':' in directive.name:
+            prefix, name = directive.name.split(':', maxsplit=1)
+            if prefix not in self.extensions_by_module:
+                raise SyntaxError('Unrecognized directive prefix: ' + prefix, self)
+            for extension in self.extensions_by_module[prefix]:
+                if extension.take_directive(directive):
+                    return
+            raise SyntaxError('Unrecognized directive: ' + directive.name, self)
         elif directive.name == 'define':
             values = directive.content.split(maxsplit=1)
             if len(values) != 2:

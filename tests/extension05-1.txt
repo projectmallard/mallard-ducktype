@@ -1,0 +1,2 @@
+@ducktype/1.0 _test/directive
+@_test:defines
