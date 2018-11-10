@@ -1,0 +1,7 @@
+= Info Test
+- Subtitle
+  [topic]
+
+@desc Test of info elements.
+
+Info elements can have a blank line before them.

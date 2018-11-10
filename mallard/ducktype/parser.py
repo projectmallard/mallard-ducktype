@@ -526,7 +526,7 @@ class InlineParser:
 
 class AttributeParser:
     def __init__(self, parent):
-        self.remainder = None
+        self.remainder = ''
         self.attributes = Attributes()
         self.finished = False
         self.filename = parent.filename
@@ -626,7 +626,7 @@ class AttributeParser:
                     j += 1
                 word = self.parse_value(line[i + 1:j])
                 if line[i] == '>':
-                    if line[i + 1] == '>':
+                    if len(line) > i + 1 and line[i + 1] == '>':
                         self.attributes.add_attribute('href', word[1:])
                     else:
                         self.attributes.add_attribute('xref', word)
@@ -1123,6 +1123,8 @@ class DuckParser:
             self.state = DuckParser.STATE_BLOCK
             self.info_state = DuckParser.INFO_STATE_INFO
             self._parse_line(line)
+        elif line.strip() == '':
+            self.state = DuckParser.STATE_HEADER_INFO
         else:
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
