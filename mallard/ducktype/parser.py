@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2015 Shaun McCance <shaunm@gnome.org>
+# Copyright (c) 2014-2019 Shaun McCance <shaunm@gnome.org>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,7 @@ def _escape_xml_attr(s):
 def _escape_xml(s):
     return s.replace('&', '&amp;').replace('<', '&lt;')
 
-_escaped_chars = '$*=-@[]()"\''
+_escaped_chars = '$*=-.@[]()"\''
 
 
 class Attributes:
@@ -962,6 +962,7 @@ class DuckParser:
 
         indent = DuckParser.get_indent(line)
         iline = line[indent:]
+
         if iline.startswith('[-]'):
             return
         elif iline.startswith('[--'):

@@ -1,0 +1,4 @@
+= Attribute Test
+
+Let's test some escapes.
+$app[style="$$ $* $= $- $. $@ $[ $] $( $) $" $'"]()

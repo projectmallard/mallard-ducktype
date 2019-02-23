@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="attr09">
+ <title>Attribute Test</title>
+ <p>Let's test some escapes.
+ <app style="$ * = - . @ [ ] ( ) &quot; '"></app></p>
+</page>
