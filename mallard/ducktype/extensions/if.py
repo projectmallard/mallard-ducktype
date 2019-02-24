@@ -22,7 +22,7 @@ import mallard.ducktype
 
 IFURI = 'http://projectmallard.org/if/1.0/'
 
-class IftExtension(mallard.ducktype.parser.ParserExtension):
+class IfExtension(mallard.ducktype.parser.ParserExtension):
     def __init__(self, parser, prefix, version):
         if version == 'experimental':
             self.version = version
