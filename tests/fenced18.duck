@@ -1,0 +1,6 @@
+= Fenced Test
+
+[code]
+  [[[]]]
+    hello
+  world

@@ -386,14 +386,12 @@ class Fence(Node):
 
     def _write_xml(self, fd, *, depth=0, verbatim=False):
         lines = self.children[0].split('\n')
-        firstindent = DuckParser.get_indent(lines[0])
-
         for i in range(len(lines)):
             line = lines[i]
             indent = DuckParser.get_indent(line)
             if i != 0:
                 fd.write('\n')
-            fd.write(_escape_xml(line[min(indent, firstindent):]))
+            fd.write(_escape_xml(line[min(indent, self.inner):]))
 
 
 class SyntaxError(Exception):
