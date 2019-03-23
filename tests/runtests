@@ -5,6 +5,13 @@ set -u
 
 count=0
 any_failed=0
+silent=0
+
+for arg in $@; do
+    if [ "x$arg" = "x-s" ]; then
+        silent=1
+    fi
+done
 
 for duck in *.duck; do
     count=$(( count + 1 ))
@@ -29,7 +36,9 @@ for duck in *.duck; do
         fail="neither $page nor $error exists"
     fi
     if [ -z "$fail" ]; then
-        echo "ok $count - $duck"
+        if [ $silent = 0 ]; then
+            echo "ok $count - $duck"
+        fi
     else
         any_failed=1
         echo "not ok $count - $duck: $fail"
