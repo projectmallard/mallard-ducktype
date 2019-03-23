@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:test="http://projectmallard.org/test/" xmlns:_test="http://projectmallard.org/experimental/_test" id="extension09">
+ <title>Extension Test</title>
+ <_test:blocks style="testing"/>
+</page>

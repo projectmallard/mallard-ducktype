@@ -1,6 +1,6 @@
 @include extension05-1.txt
 
-= Testing
+= Extension Test
 
 This is a test of directive extensions.
 

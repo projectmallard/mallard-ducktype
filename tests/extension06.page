@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:test="http://projectmallard.org/test/" id="extension06">
+ <title>Extension Test</title>
+ <p>This is a test of block node extensions.</p>
+ <note style="warning">
+  <p>This is a test.</p>
+ </note>
+ <p>This is after the test.</p>
+</page>

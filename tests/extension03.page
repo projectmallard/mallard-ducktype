@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <page xmlns="http://projectmallard.org/1.0/" xmlns:test="http://projectmallard.org/test/" id="extension03">
- <title>Testing</title>
+ <title>Extension Test</title>
  <p>This is a test of directive extensions.</p>
  <p>This is a <em>test</em>. It is only a <em style="strong">test</em>.</p>
 </page>

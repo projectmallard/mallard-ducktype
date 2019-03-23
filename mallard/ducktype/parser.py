@@ -104,21 +104,26 @@ class Directive:
 
 
 class Node:
-    def __init__(self, name, outer=0, inner=None, parser=None, linenum=None):
+    def __init__(self, name, outer=0, inner=None, parser=None, linenum=None, extensions=False):
         self.name = name
         self.nsprefix = None
         self.nsuri = None
         self.localname = name
         self.default_namespace = None
+        self.extension = None
         self.is_external = False
         if ':' in name:
             self.nsprefix = name[:name.index(':')]
             self.nsuri = parser.document.get_namespace(self.nsprefix)
-            if self.nsuri is None and self.nsprefix != 'xml':
-                raise SyntaxError('Unrecognized namespace prefix: ' + self.nsprefix, parser)
             self.localname = self.name[len(self.nsprefix)+1:]
-            if not self.nsuri.startswith('http://projectmallard.org/'):
+            if self.nsuri is not None and not self.nsuri.startswith('http://projectmallard.org/'):
                 self.is_external = True
+            if extensions and parser is not None:
+                if self.nsprefix in parser.extensions_by_module:
+                    self.extension = self.nsprefix
+            if self.extension is None:
+                if self.nsuri is None and self.nsprefix != 'xml':
+                    raise SyntaxError('Unrecognized namespace prefix: ' + self.nsprefix, parser)
         else:
             self.localname = name
         self.outer = outer
@@ -132,6 +137,9 @@ class Node:
         self.is_division = (name in ('page', 'section'))
         self.is_verbatim = (name in ('screen', 'code'))
         self.is_list = (name in ('list', 'steps', 'terms', 'tree'))
+        self.is_greedy = self.is_name((
+            'list', 'steps', 'terms', 'tree',
+            'table', 'thead', 'tfoot', 'tbody', 'tr'))
         self.linenum = linenum
         if self.linenum is None and parser is not None:
             self.linenum = parser.linenum
@@ -430,6 +438,9 @@ class ParserExtension:
     def take_directive(self, directive):
         return False
 
+    def take_block_node(self, node):
+        return False
+
 
 class InlineParser:
     def __init__(self, parent, linenum=1):
@@ -532,10 +543,10 @@ class InlineParser:
                 cur += 1
 
 
-
 class AttributeParser:
-    def __init__(self, parent):
+    def __init__(self, parent, node=None):
         self.remainder = ''
+        self.node = node
         self.attributes = Attributes()
         self.finished = False
         self.filename = parent.filename
@@ -1291,9 +1302,7 @@ class DuckParser:
             while self.current.inner == self.current.outer:
                 if self.current.is_division:
                     break
-                if self.current.is_name(('list', 'steps', 'terms', 'tree')):
-                    break
-                if self.current.is_name(('table', 'thead', 'tfoot', 'tbody', 'tr')):
+                if self.current.is_greedy:
                     break
                 if self.current.is_leaf:
                     self.push_text()
@@ -1390,7 +1399,7 @@ class DuckParser:
                 if not _isnmtoken(iline[j]):
                     break
             name = iline[1:j]
-            node = Block(name, indent, parser=self)
+            node = Block(name, indent, parser=self, extensions=True)
 
             if node.is_name('item'):
                 self.unravel_for_list_item(indent)
@@ -1403,18 +1412,17 @@ class DuckParser:
             else:
                 self.unravel_for_block(indent)
 
-            self.current.add_child(node)
-            self.current = node
-
             if iline[j] == ']':
                 self.state = DuckParser.STATE_BLOCK_READY
+                self._take_block_node(node)
             else:
-                self._attrparser = AttributeParser(self)
+                self._attrparser = AttributeParser(self, node=node)
                 self._attrparser.parse_line(iline[j:])
                 if self._attrparser.finished:
-                    self.current.attributes = self._attrparser.attributes
+                    node.attributes = self._attrparser.attributes
                     self.state = DuckParser.STATE_BLOCK_READY
                     self._attrparser = None
+                    self._take_block_node(node)
                 else:
                     self.state = DuckParser.STATE_BLOCK_ATTR
         elif iline.startswith('. '):
@@ -1526,9 +1534,11 @@ class DuckParser:
     def _parse_line_block_attr(self, line):
         self._attrparser.parse_line(line)
         if self._attrparser.finished:
-            self.current.attributes = self._attrparser.attributes
+            node = self._attrparser.node
+            node.attributes = self._attrparser.attributes
             self.state = DuckParser.STATE_BLOCK_READY
             self._attrparser = None
+            self._take_block_node(node)
 
     def _parse_line_block_ready(self, line):
         indent = DuckParser.get_indent(line)
@@ -1542,6 +1552,23 @@ class DuckParser:
             self.current.inner = DuckParser.get_indent(line)
         self.state = DuckParser.STATE_BLOCK
         self._parse_line(line)
+
+    def _take_block_node(self, node):
+        if node.extension:
+            for extension in self.extensions_by_module[node.extension]:
+                if extension.take_block_node(node):
+                    return
+            # If no extension claimed it, but there's still a namespace
+            # binding, that's ok. You can have a namespace prefix with
+            # the same name as an extension, but the extension wins.
+            if node.nsuri is not None:
+                self.current.add_child(node)
+                self.current = node
+            else:
+                raise SyntaxError('Unrecognized extension element: ' + node.name, self)
+        else:
+            self.current.add_child(node)
+            self.current = node
 
     def set_text(self, text):
         self._text = text

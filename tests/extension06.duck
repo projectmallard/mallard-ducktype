@@ -1,0 +1,8 @@
+@ducktype/1.0 _test/blocknode
+
+= Extension Test
+
+This is a test of block node extensions.
+[_test:block]
+  This is a test.
+This is after the test.

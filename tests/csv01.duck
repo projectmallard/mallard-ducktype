@@ -1,0 +1,9 @@
+@ducktype/1.0 csv/experimental
+
+= CSV Test
+
+[csv:table]
+1,2,3
+4,5,6
+
+Out

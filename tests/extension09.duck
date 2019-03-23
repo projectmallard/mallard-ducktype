@@ -1,0 +1,6 @@
+@ducktype/1.0 _test/blocknode
+@namespace _test http://projectmallard.org/experimental/_test
+
+= Extension Test
+
+[_test:blocks .testing]

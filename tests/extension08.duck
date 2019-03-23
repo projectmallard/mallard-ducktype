@@ -1,0 +1,5 @@
+@ducktype/1.0 _test/blocknode
+
+= Extension Test
+
+[_test:blocks .testing]

@@ -1,6 +1,6 @@
 @ducktype/1.0 _test/directive
 @test:defines
 
-= Testing
+= Extension Test
 
 This is a test of directive extensions.
