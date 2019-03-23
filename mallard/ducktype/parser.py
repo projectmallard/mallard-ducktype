@@ -51,11 +51,21 @@ class Attributes:
     def add_attribute(self, key, value):
         if key not in self._attrlist:
             self._attrlist.append(key)
-        if key == 'style':
+        if key in ('style', 'type'):
             self._attrvals.setdefault(key, [])
             self._attrvals[key].append(value)
         else:
             self._attrvals[key] = value
+
+    def get_attribute(self, key):
+        val = self._attrvals.get(key)
+        if isinstance(val, list):
+            return ' '.join(val)
+        else:
+            return val
+
+    def get_attributes(self):
+        return self._attrlist
 
     def __contains__(self, item):
         return item in self._attrlist
@@ -63,10 +73,11 @@ class Attributes:
     def _write_xml(self, fd):
         for attr in self._attrlist:
             fd.write(' ' + attr + '="')
-            if attr == 'style':
-                fd.write(' '.join([_escape_xml_attr(s) for s in self._attrvals[attr]]))
+            val = self._attrvals[attr]
+            if isinstance(val, list):
+                fd.write(' '.join([_escape_xml_attr(s) for s in val]))
             else:
-                fd.write(_escape_xml_attr(self._attrvals[attr]))
+                fd.write(_escape_xml_attr(val))
             fd.write('"')
 
 
