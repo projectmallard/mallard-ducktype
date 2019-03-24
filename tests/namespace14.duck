@@ -1,0 +1,7 @@
+@ducktype/1.0
+
+= Namespace Test
+@its:rules[version=2.0]
+
+[code its:translate=yes]
+This is a test of namespaces.

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" xmlns:its="http://www.w3.org/2005/11/its" id="namespace14">
+ <info>
+  <its:rules version="2.0"/>
+ </info>
+ <title>Namespace Test</title>
+ <code its:translate="yes">This is a test of namespaces.</code>
+</page>

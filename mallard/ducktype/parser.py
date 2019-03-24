@@ -122,8 +122,14 @@ class Node:
                 if self.nsprefix in parser.extensions_by_module:
                     self.extension = self.nsprefix
             if self.extension is None:
-                if self.nsuri is None and self.nsprefix != 'xml':
-                    raise SyntaxError('Unrecognized namespace prefix: ' + self.nsprefix, parser)
+                if self.nsuri is None:
+                    if self.nsprefix == 'xml':
+                        pass
+                    elif self.nsprefix == 'its':
+                        parser.document.add_namespace('its', 'http://www.w3.org/2005/11/its')
+                    else:
+                        raise SyntaxError('Unrecognized namespace prefix: ' + self.nsprefix,
+                                          parser)
         else:
             self.localname = name
         self.outer = outer
@@ -665,8 +671,13 @@ class AttributeParser:
                         nsprefix, localname = word.split(':', maxsplit=1)
                         nsuri = self._parent.document.get_namespace(nsprefix)
                         if nsuri is None:
-                            raise SyntaxError('Unrecognized namespace prefix: ' + nsprefix,
-                                              self)
+                            if nsprefix == 'xml':
+                                pass
+                            elif nsprefix == 'its':
+                                self._parent.document.add_namespace('its', 'http://www.w3.org/2005/11/its')
+                            else:
+                                raise SyntaxError('Unrecognized namespace prefix: ' + nsprefix,
+                                                  self)
                     if line[j + 1] in ('"', "'"):
                         self._quote = line[j + 1]
                         self._value = ''
@@ -952,6 +963,9 @@ class DuckParser:
             if values[0] == 'xml':
                 if values[1] != 'http://www.w3.org/XML/1998/namespace':
                     raise SyntaxError('Wrong value of xml namespace prefix', self)
+            if values[0] == 'its':
+                if values[1] != 'http://www.w3.org/2005/11/its':
+                    raise SyntaxError('Wrong value of its namespace prefix', self)
             self.current.add_namespace(*values)
         else:
             raise SyntaxError('Unrecognized directive: ' + directive.name, self)

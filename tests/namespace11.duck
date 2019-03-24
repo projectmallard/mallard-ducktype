@@ -1,0 +1,7 @@
+@ducktype/1.0
+@namespace its http://www.w3.org/2005/11/its
+
+= Namespace Test
+
+[code its:translate=yes]
+This is a test of namespaces.
