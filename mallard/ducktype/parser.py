@@ -661,6 +661,12 @@ class AttributeParser:
                     j += 1
                 word = line[i:j]
                 if line[j] == '=' and word != '':
+                    if ':' in word:
+                        nsprefix, localname = word.split(':', maxsplit=1)
+                        nsuri = self._parent.document.get_namespace(nsprefix)
+                        if nsuri is None:
+                            raise SyntaxError('Unrecognized namespace prefix: ' + nsprefix,
+                                              self)
                     if line[j + 1] in ('"', "'"):
                         self._quote = line[j + 1]
                         self._value = ''
