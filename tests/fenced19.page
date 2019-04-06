@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page xmlns="http://projectmallard.org/1.0/" id="fenced19">
+ <title>Fenced Test</title>
+ <code>def no():
+  return False</code>
+</page>

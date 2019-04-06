@@ -1,0 +1,7 @@
+= Fenced Test
+
+[code]
+    [[[
+  def no():
+    return False
+    ]]]

@@ -411,12 +411,13 @@ class Fence(Node):
 
     def _write_xml(self, fd, *, depth=0, verbatim=False):
         lines = self.children[0].split('\n')
+        trim = min(self.inner, DuckParser.get_indent(lines[0]))
         for i in range(len(lines)):
             line = lines[i]
             indent = DuckParser.get_indent(line)
             if i != 0:
                 fd.write('\n')
-            fd.write(_escape_xml(line[min(indent, self.inner):]))
+            fd.write(_escape_xml(line[min(indent, trim):]))
 
 
 class SyntaxError(Exception):
@@ -1397,9 +1398,11 @@ class DuckParser:
 
             sline = iline.strip()[3:]
             if sline.endswith(']]]'):
+                node.inner = 0
                 node.add_line(sline[:-3] + '\n')
             else:
                 if sline.strip() != '':
+                    node.inner = 0
                     node.add_line(sline + '\n')
                 self.current = node
                 self._fenced = True
