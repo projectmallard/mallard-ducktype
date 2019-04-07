@@ -846,6 +846,7 @@ class DuckParser:
         self._defaultid = None
         self._comment = False
         self._fenced = False
+        self._fragments = False
 
     @staticmethod
     def get_indent(line):
@@ -917,6 +918,9 @@ class DuckParser:
                     'Unsupported ducktype version: ' + directive.name ,
                     self)
             for value in directive.content.split():
+                if value == '__future__/fragments':
+                    self._fragments = True
+                    continue
                 try:
                     prefix, version = value.split('/', maxsplit=1)
                     extmod = importlib.import_module('mallard.ducktype.extensions.' + prefix)
@@ -1057,6 +1061,8 @@ class DuckParser:
             self.current = node
             self.state = DuckParser.STATE_HEADER
         elif line.strip().startswith('[') or line.startswith('=='):
+            if self._fragments == False:
+                raise SyntaxError('Missing page header', self)
             self.state = DuckParser.STATE_BLOCK
             self._parse_line(line)
         else:
