@@ -140,19 +140,18 @@ class Node:
         self.info = None
         self.children = []
         self.attributes = None
-        self.is_division = (name in ('page', 'section'))
         self.is_verbatim = (name in ('screen', 'code'))
         self.is_list = (name in ('list', 'steps', 'terms', 'tree'))
         self.is_greedy = self.is_name((
             'list', 'steps', 'terms', 'tree',
             'table', 'thead', 'tfoot', 'tbody', 'tr'))
+        self._is_leaf = None
         self.linenum = linenum
         if self.linenum is None and parser is not None:
             self.linenum = parser.linenum
         self._namespaces = collections.OrderedDict()
         self._definitions = {}
         self._parent = None
-        self._depth = 1
         self._softbreak = False # Help keep out pesky trailing newlines
 
     def is_name(self, localname, nsuri=None):
@@ -173,6 +172,8 @@ class Node:
 
     @property
     def is_leaf(self):
+        if self._is_leaf is not None:
+            return self._is_leaf
         leafs = ('p', 'screen', 'code', 'title', 'subtitle', 'desc', 'cite', 'name', 'email', 'years')
         if self.is_name(leafs):
             return True
@@ -182,6 +183,10 @@ class Node:
             if self.nsuri == 'http://projectmallard.org/1.0/':
                 return self.localname in leafs
         return False
+
+    @is_leaf.setter
+    def is_leaf(self, is_leaf):
+        self._is_leaf = is_leaf
 
     @property
     def is_tree_item(self):
@@ -224,17 +229,12 @@ class Node:
         return True
 
     @property
-    def depth(self):
-        return self._depth
-
-    @property
     def parent(self):
         return self._parent
 
     @parent.setter
     def parent(self, node):
         self._parent = node
-        self._depth = node._depth + 1
 
     def add_child(self, child):
         if isinstance(child, str):
@@ -365,24 +365,24 @@ class Node:
 class Document(Node):
     def __init__(self, parser=None):
         Node.__init__(self, '_', parser=parser)
-        self.is_division = True
-        self.default_element = None
+        self.divdepth = 0
         self.default_namespace = 'http://projectmallard.org/1.0/'
 
     def _write_xml(self, fd, *args, depth=0, verbatim=False):
-        if self.default_element is not None:
+        if len(self.children) == 1:
             fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
-            self.name = self.default_element
-            Node._write_xml(self, fd)
-        else:
-            if len(self.children) == 1:
-                fd.write('<?xml version="1.0" encoding="utf-8"?>\n')
-            for child in self.children:
-                if child.default_namespace is None:
-                    child.default_namespace = self.default_namespace
-                for ns in self._namespaces:
-                    child.add_namespace(ns, self._namespaces[ns])
-                child._write_xml(fd)
+        for child in self.children:
+            if child.default_namespace is None:
+                child.default_namespace = self.default_namespace
+            for ns in self._namespaces:
+                child.add_namespace(ns, self._namespaces[ns])
+            child._write_xml(fd)
+
+
+class Division(Node):
+    def __init__(self, name, depth, **kwargs):
+        Node.__init__(self, name, **kwargs)
+        self.divdepth = depth
 
 
 class Block(Node):
@@ -418,6 +418,69 @@ class Fence(Node):
             if i != 0:
                 fd.write('\n')
             fd.write(_escape_xml(line[min(indent, trim):]))
+
+
+class NodeFactory:
+    def __init__(self, parser):
+        self.parser = parser
+
+    def create_block_node(self, name, indent):
+        node = Block(name, outer=indent, parser=self.parser, extensions=True)
+        return node
+
+    def create_paragraph_node(self, indent):
+        node = Block('p', outer=indent, parser=self.parser)
+        return node
+
+    def handle_page_title(self, indent):
+        page = Division('page', depth=1, parser=self.parser)
+        title = Block('title', 0, indent, parser=self.parser)
+        self.parser.document.add_child(page)
+        page.add_child(title)
+        self.parser.current = title
+
+    def handle_section_title(self, indent):
+        depth = indent - 1
+        section = Division('section', depth=depth, parser=self.parser)
+        title = Block('title', 0, indent, parser=self.parser)
+        self.parser.current.add_child(section)
+        section.add_child(title)
+        self.parser.current = title
+
+    def handle_block_item_content(self, indent):
+        # For lines starting with '* '. It might be a td element,
+        # it might be an item element in a list or steps, it might
+        # be a tree item, or it might start the content of an item
+        # in a terms. It might also start a list element.
+        if self.parser.current.is_name('tr'):
+            node = Block('td', indent, indent + 2, parser=self.parser)
+            self.parser.current.add_child(node)
+            self.parser.current = node
+            return node
+        elif self.parser.current.is_name('terms'):
+            # All the logic above will have unraveled us from the item
+            # created by the title, so we have to step back into it.
+            if self.parser.current.is_empty or not self.parser.current.children[-1].is_name('item'):
+                raise SyntaxError('Missing item title in terms', self.parser)
+            self.parser.current = self.parser.current.children[-1]
+            return self.parser.current
+        elif self.parser.current.is_name('tree') or self.parser.current.is_tree_item:
+            item = Block('item', indent, indent + 2, parser=self.parser)
+            self.parser.current.add_child(item)
+            self.parser.current = item
+            return item
+        elif self.parser.current.is_name(('list', 'steps')):
+            item = Block('item', indent, indent + 2, parser=self.parser)
+            self.parser.current.add_child(item)
+            self.parser.current = item
+            return item
+        else:
+            node = Block('list', indent, parser=self.parser)
+            self.parser.current.add_child(node)
+            item = Block('item', indent, indent + 2, parser=self.parser)
+            node.add_child(item)
+            self.parser.current = item
+            return item
 
 
 class SyntaxError(Exception):
@@ -841,6 +904,8 @@ class DuckParser:
         self.curinfo = None
         self.extensions = []
         self.extensions_by_module = {}
+        self.factory = NodeFactory(self)
+
         self._text = ''
         self._attrparser = None
         self._defaultid = None
@@ -980,11 +1045,13 @@ class DuckParser:
             self.info_state == DuckParser.INFO_STATE_ATTR):
             raise SyntaxError('Unterminated block declaration', self)
         self.push_text()
-        if self._defaultid is not None:
-            if self.document.attributes is None:
-                self.document.attributes = Attributes()
-            if 'id' not in self.document.attributes:
-                self.document.attributes.add_attribute('id', self._defaultid)
+        if self._defaultid is not None and len(self.document.children) == 1:
+            root = self.document.children[0]
+            if isinstance(root, Division):
+                if root.attributes is None:
+                    root.attributes = Attributes()
+                if 'id' not in root.attributes:
+                    root.attributes.add_attribute('id', self._defaultid)
         self.parse_inline()
 
     def parse_line(self, line):
@@ -1054,11 +1121,8 @@ class DuckParser:
         elif line.startswith('@'):
             self._parse_line_directive(line)
         elif line.startswith('= '):
-            self.document.default_element = 'page'
+            self.factory.handle_page_title(2)
             self.set_text(line[2:])
-            node = Block('title', 0, 2, parser=self)
-            self.current.add_child(node)
-            self.current = node
             self.state = DuckParser.STATE_HEADER
         elif line.strip().startswith('[') or line.startswith('=='):
             if self._fragments == False:
@@ -1094,9 +1158,9 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_header_post(self, line):
-        if line.startswith(('-' * self.current.depth) + ' '):
-            self.set_text(line[self.current.depth + 1:])
-            node = Block('subtitle', 0, self.current.depth + 1, parser=self)
+        if line.startswith(('-' * (self.current.divdepth)) + ' '):
+            self.set_text(line[self.current.divdepth + 1:])
+            node = Block('subtitle', 0, self.current.divdepth + 1, parser=self)
             self.current.add_child(node)
             self.current = node
             self.state = DuckParser.STATE_SUBHEADER
@@ -1194,7 +1258,7 @@ class DuckParser:
             # level of the parent and the parent is a block, blank
             # line terminates info, because it must terminate the
             # block according to block processing rules.
-            if (self.current.outer == self.current.inner and not self.current.is_division):
+            if (self.current.outer == self.current.inner and not isinstance(self.current, Division)):
                 self.push_text()
                 self.info_state = DuckParser.INFO_STATE_NONE
                 self._parse_line(line)
@@ -1327,7 +1391,7 @@ class DuckParser:
                     self.push_text()
                     self.current = self.current.parent
             while self.current.inner == self.current.outer:
-                if self.current.is_division:
+                if isinstance(self.current, (Division, Document)):
                     break
                 if self.current.is_greedy:
                     break
@@ -1345,17 +1409,19 @@ class DuckParser:
                 sectd = i
         if sectd > 0:
             self.push_text()
-            while not self.current.is_division:
+            while not isinstance(self.current, (Division, Document)):
                 self.current = self.current.parent
-            while self.current.depth >= sectd:
+            while self.current.divdepth >= sectd:
                 self.current = self.current.parent
-            if sectd != self.current.depth + 1:
-                raise SyntaxError('Incorrect section depth', self)
-            section = Block('section', parser=self)
-            self.current.add_child(section)
-            title = Block('title', 0, sectd + 1, parser=self)
-            section.add_child(title)
-            self.current = title
+            if sectd != self.current.divdepth + 1:
+                if isinstance(self.current, Document) and (
+                        self._fragments and(
+                            len(self.current.children) == 0 or
+                            sectd == self.current.children[0].divdepth)):
+                    pass
+                else:
+                    raise SyntaxError('Incorrect section depth', self)
+            self.factory.handle_section_title(sectd + 1)
             self.set_text(line[sectd + 1:])
             self.state = DuckParser.STATE_HEADER
             return
@@ -1370,7 +1436,9 @@ class DuckParser:
         indent = DuckParser.get_indent(line)
         if indent < self.current.inner:
             self.push_text()
-            while (not self.current.is_division) and self.current.inner > indent:
+            while self.current.inner > indent:
+                if isinstance(self.current, (Division, Document)):
+                    break
                 self.current = self.current.parent
 
         if self.current.is_verbatim:
@@ -1392,11 +1460,11 @@ class DuckParser:
                 if self.current.is_tree_item:
                     while self.current.is_name(('tree', 'item')):
                         self.current = self.current.parent
-                while (not self.current.is_division and (
-                        not self.current.available and
-                        self.current.outer == indent)):
+                while self.current.outer == indent and not self.current.available:
+                    if isinstance(self.current, (Division, Document)):
+                        break
                     self.current = self.current.parent
-                pnode = Block('p', indent, parser=self)
+                pnode = self.factory.create_paragraph_node(indent)
                 self.current.add_child(pnode)
                 pnode.add_child(node)
             else:
@@ -1428,7 +1496,7 @@ class DuckParser:
                 if not _isnmtoken(iline[j]):
                     break
             name = iline[1:j]
-            node = Block(name, indent, parser=self, extensions=True)
+            node = self.factory.create_block_node(name, indent)
 
             if node.is_name('item'):
                 self.unravel_for_list_item(indent)
@@ -1465,11 +1533,11 @@ class DuckParser:
             if self.current.is_tree_item:
                 while self.current.is_name(('tree', 'item')):
                     self.current = self.current.parent
-            while (not self.current.is_division and (
-                    not self.current.available and
-                    self.current.outer == indent)):
+            while self.current.outer == indent and not self.current.available:
+                if isinstance(self.current, (Division, Document)):
+                    break
                 self.current = self.current.parent
-            node = Block('p', indent, parser=self)
+            node = self.factory.create_paragraph_node(indent)
             self.current.add_child(node)
             self.current = node
             self.add_text(iline)
@@ -1530,35 +1598,8 @@ class DuckParser:
         self.push_text()
         self.unravel_for_indent(indent)
 
-        if self.current.is_name('tr'):
-            node = Block('td', indent, indent + 2, parser=self)
-            self.current.add_child(node)
-            self.current = node
-            self._parse_line((' ' * node.inner) + iline[2:])
-        elif self.current.is_name('terms'):
-            # All the logic above will have unraveled us from the item
-            # created by the title, so we have to step back into it.
-            if self.current.is_empty or not self.current.children[-1].is_name('item'):
-                raise SyntaxError('Missing item title in terms', self)
-            self.current = self.current.children[-1]
-            self._parse_line((' ' * self.current.inner) + iline[2:])
-        elif self.current.is_name('tree') or self.current.is_tree_item:
-            item = Block('item', indent, indent + 2, parser=self)
-            self.current.add_child(item)
-            self.current = item
-            self._parse_line((' ' * item.inner) + iline[2:])
-        elif self.current.is_name(('list', 'steps')):
-            item = Block('item', indent, indent + 2, parser=self)
-            self.current.add_child(item)
-            self.current = item
-            self._parse_line((' ' * item.inner) + iline[2:])
-        else:
-            node = Block('list', indent, parser=self)
-            self.current.add_child(node)
-            item = Block('item', indent, indent + 2, parser=self)
-            node.add_child(item)
-            self.current = item
-            self._parse_line((' ' * item.inner) + iline[2:])
+        node = self.factory.handle_block_item_content(indent)
+        self._parse_line((' ' * node.inner) + iline[2:])
 
     def _parse_line_block_attr(self, line):
         self._attrparser.parse_line(line)
@@ -1572,8 +1613,9 @@ class DuckParser:
     def _parse_line_block_ready(self, line):
         indent = DuckParser.get_indent(line)
         if indent < self.current.outer:
-            while ((not self.current.is_division) and
-                   (self.current.outer > indent)):
+            while self.current.outer > indent:
+                if isinstance(self.current, (Division, Document)):
+                    break
                 self.current = self.current.parent
         else:
             if line.lstrip().startswith('@'):
@@ -1617,7 +1659,7 @@ class DuckParser:
     def unravel_for_list_item(self, indent):
         self.unravel_for_indent(indent)
         while self.current.outer == indent:
-            if self.current.is_division:
+            if isinstance(self.current, (Division, Document)):
                 break
             if self.current.available:
                 break
@@ -1629,7 +1671,7 @@ class DuckParser:
     def unravel_for_table_cell(self, indent):
         self.unravel_for_indent(indent)
         while self.current.outer == indent:
-            if self.current.is_division:
+            if isinstance(self.current, (Division, Document)):
                 break
             if self.current.available:
                 break
@@ -1644,7 +1686,7 @@ class DuckParser:
     def unravel_for_table_row(self, indent):
         self.unravel_for_indent(indent)
         while self.current.outer == indent:
-            if self.current.is_division:
+            if isinstance(self.current, (Division, Document)):
                 break
             if self.current.available:
                 break
@@ -1659,7 +1701,7 @@ class DuckParser:
     def unravel_for_table_body(self, indent):
         self.unravel_for_indent(indent)
         while self.current.outer == indent:
-            if self.current.is_division:
+            if isinstance(self.current, (Division, Document)):
                 break
             if self.current.available:
                 break
@@ -1674,7 +1716,7 @@ class DuckParser:
     def unravel_for_block(self, indent):
         self.unravel_for_indent(indent)
         while self.current.outer == indent:
-            if self.current.is_division:
+            if isinstance(self.current, (Division, Document)):
                 break
             if self.current.available:
                 break
@@ -1685,9 +1727,9 @@ class DuckParser:
 
     # This only unravels what indentation absolutely forces.
     def unravel_for_indent(self, indent):
-        while (not self.current.is_division and (
-                self.current.is_leaf or
-                self.current.outer > indent)):
+        while self.current.outer > indent or self.current.is_leaf:
+            if isinstance(self.current, (Division, Document)):
+                break
             self.current = self.current.parent
 
 
