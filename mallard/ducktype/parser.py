@@ -424,36 +424,34 @@ class NodeFactory:
     def __init__(self, parser):
         self.parser = parser
 
-    def create_block_node(self, name, indent):
-        node = Block(name, outer=indent, parser=self.parser, extensions=True)
+    def create_block_node(self, name, outer):
+        node = Block(name, outer=outer, parser=self.parser, extensions=True)
         return node
 
-    def create_paragraph_node(self, indent):
-        node = Block('p', outer=indent, parser=self.parser)
+    def create_paragraph_node(self, outer):
+        node = Block('p', outer=outer, parser=self.parser)
         return node
 
-    def handle_page_title(self, indent):
-        page = Division('page', depth=1, parser=self.parser)
-        title = Block('title', 0, indent, parser=self.parser)
-        self.parser.document.add_child(page)
+    def handle_division_title(self, depth, inner):
+        name = 'page' if (depth == 1) else 'section'
+        page = Division(name, depth=depth, parser=self.parser)
+        title = Block('title', inner=inner, parser=self.parser)
+        self.parser.current.add_child(page)
         page.add_child(title)
         self.parser.current = title
 
-    def handle_section_title(self, indent):
-        depth = indent - 1
-        section = Division('section', depth=depth, parser=self.parser)
-        title = Block('title', 0, indent, parser=self.parser)
-        self.parser.current.add_child(section)
-        section.add_child(title)
-        self.parser.current = title
+    def handle_division_subtitle(self, depth, inner):
+        node = Block('subtitle', inner=inner, parser=self.parser)
+        self.parser.current.add_child(node)
+        self.parser.current = node
 
-    def handle_block_item_content(self, indent):
+    def handle_block_item_content(self, outer, inner):
         # For lines starting with '* '. It might be a td element,
         # it might be an item element in a list or steps, it might
         # be a tree item, or it might start the content of an item
         # in a terms. It might also start a list element.
         if self.parser.current.is_name('tr'):
-            node = Block('td', indent, indent + 2, parser=self.parser)
+            node = Block('td', outer=outer, inner=inner, parser=self.parser)
             self.parser.current.add_child(node)
             self.parser.current = node
             return node
@@ -465,19 +463,19 @@ class NodeFactory:
             self.parser.current = self.parser.current.children[-1]
             return self.parser.current
         elif self.parser.current.is_name('tree') or self.parser.current.is_tree_item:
-            item = Block('item', indent, indent + 2, parser=self.parser)
+            item = Block('item', outer=outer, inner=inner, parser=self.parser)
             self.parser.current.add_child(item)
             self.parser.current = item
             return item
         elif self.parser.current.is_name(('list', 'steps')):
-            item = Block('item', indent, indent + 2, parser=self.parser)
+            item = Block('item', outer=outer, inner=inner, parser=self.parser)
             self.parser.current.add_child(item)
             self.parser.current = item
             return item
         else:
-            node = Block('list', indent, parser=self.parser)
+            node = Block('list', outer=outer, parser=self.parser)
             self.parser.current.add_child(node)
-            item = Block('item', indent, indent + 2, parser=self.parser)
+            item = Block('item', outer=outer, inner=inner, parser=self.parser)
             node.add_child(item)
             self.parser.current = item
             return item
@@ -1121,7 +1119,7 @@ class DuckParser:
         elif line.startswith('@'):
             self._parse_line_directive(line)
         elif line.startswith('= '):
-            self.factory.handle_page_title(2)
+            self.factory.handle_division_title(depth=1, inner=2)
             self.set_text(line[2:])
             self.state = DuckParser.STATE_HEADER
         elif line.strip().startswith('[') or line.startswith('=='):
@@ -1158,11 +1156,10 @@ class DuckParser:
             self._parse_line(line)
 
     def _parse_line_header_post(self, line):
-        if line.startswith(('-' * (self.current.divdepth)) + ' '):
-            self.set_text(line[self.current.divdepth + 1:])
-            node = Block('subtitle', 0, self.current.divdepth + 1, parser=self)
-            self.current.add_child(node)
-            self.current = node
+        depth = self.current.divdepth
+        if line.startswith(('-' * depth) + ' '):
+            self.factory.handle_division_subtitle(depth=depth, inner=depth+1)
+            self.set_text(line[depth + 1:])
             self.state = DuckParser.STATE_SUBHEADER
         elif line.lstrip().startswith('@'):
             self.state = DuckParser.STATE_BLOCK
@@ -1421,7 +1418,7 @@ class DuckParser:
                     pass
                 else:
                     raise SyntaxError('Incorrect section depth', self)
-            self.factory.handle_section_title(sectd + 1)
+            self.factory.handle_division_title(depth=sectd, inner=sectd+1)
             self.set_text(line[sectd + 1:])
             self.state = DuckParser.STATE_HEADER
             return
@@ -1598,7 +1595,7 @@ class DuckParser:
         self.push_text()
         self.unravel_for_indent(indent)
 
-        node = self.factory.handle_block_item_content(indent)
+        node = self.factory.handle_block_item_content(indent, indent + 2)
         self._parse_line((' ' * node.inner) + iline[2:])
 
     def _parse_line_block_attr(self, line):
