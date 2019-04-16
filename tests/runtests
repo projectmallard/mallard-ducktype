@@ -6,14 +6,17 @@ set -u
 count=0
 any_failed=0
 silent=0
+glob=""
 
 for arg in $@; do
     if [ "x$arg" = "x-s" ]; then
         silent=1
+    elif [ "x$arg" != "x" ]; then
+        glob="$arg"
     fi
 done
 
-for duck in *.duck; do
+for duck in *$glob*.duck; do
     count=$(( count + 1 ))
     out=$(echo $duck | sed -e 's/\.duck$/.out/')
     page=$(echo $duck | sed -e 's/\.duck$/.page/')
