@@ -424,6 +424,10 @@ class NodeFactory:
     def __init__(self, parser):
         self.parser = parser
 
+    def create_info_node(self, name, outer):
+        node = Info(name, outer=outer, parser=self.parser, extensions=True)
+        return node
+
     def create_block_node(self, name, outer):
         node = Block(name, outer=outer, parser=self.parser, extensions=True)
         return node
@@ -1315,7 +1319,7 @@ class DuckParser:
             if not _isnmtoken(iline[j]):
                 break
         name = iline[1:j]
-        node = Info(name, indent, parser=self)
+        node = self.factory.create_info_node(name, indent)
         self.curinfo.add_child(node)
         self.curinfo = node
 
@@ -1324,8 +1328,14 @@ class DuckParser:
             self._attrparser = AttributeParser(self)
             self._parse_line_info_attr(iline[j + 1:])
         else:
-            self.set_text(iline[j:].lstrip())
-            if self._text == '':
+            remainder = iline[j:].lstrip()
+            if remainder != '':
+                if not self.curinfo.is_leaf:
+                    pnode = Info('p', outer=self.curinfo.outer, parser=self)
+                    self.curinfo.add_child(pnode)
+                    self.curinfo = pnode
+                self.set_text(remainder)
+            else:
                 self.info_state = DuckParser.INFO_STATE_READY
 
     def _parse_line_info_block(self, iline, indent):
@@ -1338,7 +1348,7 @@ class DuckParser:
                 self.push_text()
                 self.curinfo = self.curinfo.parent
         # If we're not in a leaf, we need to create an implicit
-        # info paragraph, but only after breatking out to the
+        # info paragraph, but only after breaking out to the
         # level of the outer indent. For example:
         # @foo
         # Not inside of foo, and in implicit p
@@ -1366,7 +1376,14 @@ class DuckParser:
         self._attrparser.parse_line(line)
         if self._attrparser.finished:
             self.curinfo.attributes = self._attrparser.attributes
-            self.set_text(self._attrparser.remainder.lstrip())
+
+            remainder = self._attrparser.remainder.lstrip()
+            if remainder != '':
+                if not self.curinfo.is_leaf:
+                    pnode = Info('p', outer=self.curinfo.outer, parser=self)
+                    self.curinfo.add_child(pnode)
+                    self.curinfo = pnode
+                self.set_text(remainder)
             self._attrparser = None
             if self._text == '':
                 self.info_state = DuckParser.INFO_STATE_READY

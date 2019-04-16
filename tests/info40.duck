@@ -1,0 +1,9 @@
+= Info Test
+@license[] This is the license
+           with a $link[>index](link).
+
+           This is another paragraph.
+@license This is the license
+         with a $link[>index](link).
+
+         This is another paragraph.
