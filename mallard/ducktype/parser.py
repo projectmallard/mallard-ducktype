@@ -247,6 +247,10 @@ class Node:
         self.children.append(child)
         child.parent = self
 
+    def insert_child(self, index, child):
+        self.children.insert(index, child)
+        child.parent = self
+
     def add_text(self, text):
         # We don't add newlines when we see them. Instead, we record that
         # we saw one with _softbreak and output the newline if we add
@@ -308,14 +312,12 @@ class Node:
                 fd.write('/>')
             else:
                 fd.write('/>\n')
-        elif (self.info is not None or
-              isinstance(self.children[0], Block) or
+        elif (isinstance(self.children[0], Block) or
               isinstance(self.children[0], Info) ):
             fd.write('>\n')
         else:
             fd.write('>')
-        if self.info is not None:
-            self.info._write_xml(fd, depth=depth+1)
+
         for i in range(len(self.children)):
             child = self.children[i]
             if isinstance(child, Inline):
@@ -349,9 +351,14 @@ class Node:
                 else:
                     fd.write(_escape_xml(child))
         if not self.is_empty:
+            leafy = self.is_leaf or self.is_external_leaf
+            for child in self.children:
+                if isinstance(child, (Block, Info)):
+                    leafy = False
+                    break
             if isinstance(self, Inline):
                 fd.write('</' + self.name + '>')
-            elif self.is_leaf or self.is_external_leaf:
+            elif leafy:
                 fd.write('</' + self.name + '>\n')
             elif self.is_tree_item:
                 if self.has_tree_items:
@@ -423,16 +430,21 @@ class Fence(Node):
 class NodeFactory:
     def __init__(self, parser):
         self.parser = parser
+        self.id_attribute = 'id'
 
     def create_info_node(self, name, outer):
         node = Info(name, outer=outer, parser=self.parser, extensions=True)
+        return node
+
+    def create_info_paragraph_node(self, outer):
+        node = Info('p', outer=outer, parser=self.parser)
         return node
 
     def create_block_node(self, name, outer):
         node = Block(name, outer=outer, parser=self.parser, extensions=True)
         return node
 
-    def create_paragraph_node(self, outer):
+    def create_block_paragraph_node(self, outer):
         node = Block('p', outer=outer, parser=self.parser)
         return node
 
@@ -448,6 +460,12 @@ class NodeFactory:
         node = Block('subtitle', inner=inner, parser=self.parser)
         self.parser.current.add_child(node)
         self.parser.current = node
+
+    def handle_info_container(self, outer):
+        info = Block('info', outer=outer, parser=self.parser)
+        self.parser.current.insert_child(0, info)
+        self.parser.current.info = info
+        info.parent = self.parser.current
 
     def handle_block_item_content(self, outer, inner):
         # For lines starting with '* '. It might be a td element,
@@ -1052,8 +1070,9 @@ class DuckParser:
             if isinstance(root, Division):
                 if root.attributes is None:
                     root.attributes = Attributes()
-                if 'id' not in root.attributes:
-                    root.attributes.add_attribute('id', self._defaultid)
+                idattr = self.factory.id_attribute
+                if idattr not in root.attributes:
+                    root.attributes.add_attribute(idattr, self._defaultid)
         self.parse_inline()
 
     def parse_line(self, line):
@@ -1279,8 +1298,7 @@ class DuckParser:
 
         indent = DuckParser.get_indent(line)
         if self.current.info is None:
-            self.current.info = Block('info', indent, indent, parser=self)
-            self.current.info.parent = self.current
+            self.factory.handle_info_container(indent)
             self.curinfo = self.current.info
         if indent < self.current.info.outer:
             self.push_text()
@@ -1331,7 +1349,7 @@ class DuckParser:
             remainder = iline[j:].lstrip()
             if remainder != '':
                 if not self.curinfo.is_leaf:
-                    pnode = Info('p', outer=self.curinfo.outer, parser=self)
+                    pnode = self.factory.create_info_paragraph_node(self.curinfo.outer)
                     self.curinfo.add_child(pnode)
                     self.curinfo = pnode
                 self.set_text(remainder)
@@ -1359,7 +1377,12 @@ class DuckParser:
                     if self.curinfo == self.current.info:
                         break
                     self.curinfo = self.curinfo.parent
-            node = Info('p', indent, parser=self)
+
+        # After all that unraveling, if we're not in a leaf or external,
+        # and only if we have real text to add, create an implicit p.
+        if iline.strip() != '' and not (
+                self.curinfo.is_leaf or self.curinfo.is_external):
+            node = self.factory.create_info_paragraph_node(indent)
             self.curinfo.add_child(node)
             self.curinfo = node
 
@@ -1380,7 +1403,7 @@ class DuckParser:
             remainder = self._attrparser.remainder.lstrip()
             if remainder != '':
                 if not self.curinfo.is_leaf:
-                    pnode = Info('p', outer=self.curinfo.outer, parser=self)
+                    pnode = self.factory.create_info_paragraph_node(self.curinfo.outer)
                     self.curinfo.add_child(pnode)
                     self.curinfo = pnode
                 self.set_text(remainder)
@@ -1478,7 +1501,7 @@ class DuckParser:
                     if isinstance(self.current, (Division, Document)):
                         break
                     self.current = self.current.parent
-                pnode = self.factory.create_paragraph_node(indent)
+                pnode = self.factory.create_block_paragraph_node(indent)
                 self.current.add_child(pnode)
                 pnode.add_child(node)
             else:
@@ -1551,7 +1574,7 @@ class DuckParser:
                 if isinstance(self.current, (Division, Document)):
                     break
                 self.current = self.current.parent
-            node = self.factory.create_paragraph_node(indent)
+            node = self.factory.create_block_paragraph_node(indent)
             self.current.add_child(node)
             self.current = node
             self.add_text(iline)
