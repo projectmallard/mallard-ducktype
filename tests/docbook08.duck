@@ -1,0 +1,11 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+@author
+  @personname Rupert Monkey
+@author
+  @personname
+    Wanda the Fish
+@authorinitials RM
+@authorinitials
+  WF

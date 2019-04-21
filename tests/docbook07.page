@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="docbook07">
+ <title>DocBook Test</title>
+ <info>
+  <abstract>
+   <para>abstract</para>
+  </abstract>
+  <abstract>
+   <para>abstract</para>
+  </abstract>
+  <annotation>
+   <para>annotation</para>
+  </annotation>
+  <annotation>
+   <para>annotation</para>
+  </annotation>
+  <cover>
+   <para>cover p1</para>
+   <para>cover p2</para>
+  </cover>
+  <legalnotice>
+   <title>LEGAL</title>
+   <para>NOTICE</para>
+  </legalnotice>
+  <revhistory>
+   <title>Revision History</title>
+   <revision>
+    <revnumber>1</revnumber>
+    <date>1970-01-01</date>
+    <authorinitials>SM</authorinitials>
+    <revdescription>
+     <para>description</para>
+    </revdescription>
+    <revremark>remark</revremark>
+   </revision>
+  </revhistory>
+  <subjectset>
+   <subject>
+    <subjectterm>subject</subjectterm>
+   </subject>
+  </subjectset>
+ </info>
+</article>

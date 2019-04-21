@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="docbook06">
+ <title>DocBook Test</title>
+ <section>
+  <title>Section 1</title>
+  <section>
+   <title>Section 1.1</title>
+   <subtitle>Subtitle 1.1</subtitle>
+   <para>Hello</para>
+  </section>
+ </section>
+ <section>
+  <title>Section 2</title>
+  <subtitle>Subtitle 2</subtitle>
+ </section>
+</article>

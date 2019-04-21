@@ -1,0 +1,17 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+@authorgroup
+  @editor
+    @personname Rupert Monkey
+    @address 123 Monkey Lane
+    @affiliation
+      @shortaffil Simians
+      @jobtitle Code Monkey
+    @contrib monkeying around
+    @email rupert@example.com
+    @personblurb ooh ooh aah aah
+    @uri http://example.com/
+  @editor
+    @orgname Primates
+    @orgdiv Simians

@@ -1,0 +1,10 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+
+[orderedlist]
+* Item 1
+  * Sub 1
+  * Sub 2
+* Item 2
+* Item 3

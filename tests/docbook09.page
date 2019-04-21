@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="docbook09">
+ <title>DocBook Test</title>
+ <info>
+  <author>
+   <personname>
+    <honorific>Dr</honorific>
+    <firstname>Rupert</firstname>
+    <surname>Monkey</surname>
+    <lineage>III</lineage>
+   </personname>
+  </author>
+  <author>
+   <personname>
+    <givenname>Wanda</givenname>
+    <othername>the</othername>
+    <surname>Fish</surname>
+   </personname>
+  </author>
+ </info>
+</article>

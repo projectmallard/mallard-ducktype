@@ -1,0 +1,13 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+
+== Section 1
+
+=== Section 1.1
+--- Subtitle 1.1
+
+Hello
+
+== Section 2
+-- Subtitle 2

@@ -1,0 +1,32 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+@artpagenums 1-2
+@confgroup
+  @confdates 1970-01-01
+  @confnum   42
+  @confsponsor
+    Sponsor
+  @conftitle
+    Conference
+@contractnum 1234
+@contractsponsor
+  Sponsor
+@copyright
+  @year 2019
+  @holder Shaun McCance
+@edition first
+@issuenum 42
+@keywordset
+  @keyword one
+  @keyword
+    two
+@pagenums
+  1-2
+@productname Product
+@productnumber
+  Number
+@pubdate 1970-01-01
+@releaseinfo test
+@seriesvolnums 1-2
+@volumenum 1

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="docbook11">
+ <title>DocBook Test</title>
+ <info>
+  <artpagenums>1-2</artpagenums>
+  <confgroup>
+   <confdates>1970-01-01</confdates>
+   <confnum>42</confnum>
+   <confsponsor>Sponsor</confsponsor>
+   <conftitle>Conference</conftitle>
+  </confgroup>
+  <contractnum>1234</contractnum>
+  <contractsponsor>Sponsor</contractsponsor>
+  <copyright>
+   <year>2019</year>
+   <holder>Shaun McCance</holder>
+  </copyright>
+  <edition>first</edition>
+  <issuenum>42</issuenum>
+  <keywordset>
+   <keyword>one</keyword>
+   <keyword>two</keyword>
+  </keywordset>
+  <pagenums>1-2</pagenums>
+  <productname>Product</productname>
+  <productnumber>Number</productnumber>
+  <pubdate>1970-01-01</pubdate>
+  <releaseinfo>test</releaseinfo>
+  <seriesvolnums>1-2</seriesvolnums>
+  <volumenum>1</volumenum>
+ </info>
+</article>

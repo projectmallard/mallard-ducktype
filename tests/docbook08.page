@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="docbook08">
+ <title>DocBook Test</title>
+ <info>
+  <author>
+   <personname>Rupert Monkey</personname>
+  </author>
+  <author>
+   <personname>Wanda the Fish</personname>
+  </author>
+  <authorinitials>RM</authorinitials>
+  <authorinitials>WF</authorinitials>
+ </info>
+</article>

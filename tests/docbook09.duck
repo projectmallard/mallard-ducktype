@@ -1,0 +1,17 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+@author
+  @personname
+    @honorific Dr
+    @firstname Rupert
+    @surname   Monkey
+    @lineage   III
+@author
+  @personname
+    @givenname
+      Wanda
+    @othername
+      the
+    @surname
+      Fish

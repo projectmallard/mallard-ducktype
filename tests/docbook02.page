@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="docbook02">
+ <title>DocBook Test</title>
+ <itemizedlist>
+  <listitem>
+   <para>Item 1</para>
+  </listitem>
+  <listitem>
+   <para>Item 2</para>
+  </listitem>
+  <listitem>
+   <para>Item 3</para>
+  </listitem>
+ </itemizedlist>
+</article>

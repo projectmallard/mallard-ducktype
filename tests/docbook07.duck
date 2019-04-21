@@ -1,0 +1,32 @@
+@ducktype/1.0 docbook/experimental
+
+= DocBook Test
+@abstract abstract
+@abstract
+  abstract
+@annotation annotation
+@annotation
+  annotation
+@cover
+  cover p1
+
+  cover p2
+@legalnotice
+  @title
+    LEGAL
+  NOTICE
+@revhistory
+  @title
+    Revision History
+  @revision
+    @revnumber 1
+    @date 1970-01-01
+    @authorinitials SM
+    @revdescription
+      description
+    @revremark
+      remark
+@subjectset
+  @subject
+    @subjectterm
+      subject
