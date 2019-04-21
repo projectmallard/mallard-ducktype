@@ -467,6 +467,45 @@ class NodeFactory:
         self.parser.current.info = info
         info.parent = self.parser.current
 
+    def handle_block_title(self, outer, inner):
+        # For lines starting with '. '. Creates a block title.
+        title = Block('title', outer,  inner, parser=self.parser)
+        self.parser.current.add_child(title)
+        self.parser.current = title
+
+    def handle_block_item_title(self, outer, inner):
+        # For lines starting with '- '. It might be a th element,
+        # or it might be a title in a terms item. It might also
+        # start a terms element.
+        if self.parser.current.is_name('tr'):
+            node = Block('th', outer, inner, parser=self.parser)
+            self.parser.current.add_child(node)
+            self.parser.current = node
+            return
+
+        if not self.parser.current.is_name('terms'):
+            node = Block('terms', outer, parser=self.parser)
+            self.parser.current.add_child(node)
+            self.parser.current = node
+        # By now we've unwound to the terms element. If the preceding
+        # block was a title, then the last item will have only title
+        # elements, and we just keep appending there.
+        if (not self.parser.current.is_empty
+            and isinstance(self.parser.current.children[-1], Block)
+            and self.parser.current.children[-1].is_name('item')):
+            item = self.parser.current.children[-1]
+            if (not item.is_empty
+                and isinstance(self.parser.current.children[-1], Block)
+                and item.children[-1].is_name('title')):
+                self.parser.current = item
+        if not self.parser.current.is_name('item'):
+            item = Block('item', outer, inner, parser=self.parser)
+            self.parser.current.add_child(item)
+            self.parser.current = item
+        title = Block('title', outer, inner, parser=self.parser)
+        self.parser.current.add_child(title)
+        self.parser.current = title
+
     def handle_block_item_content(self, outer, inner):
         # For lines starting with '* '. It might be a td element,
         # it might be an item element in a list or steps, it might
@@ -1582,11 +1621,10 @@ class DuckParser:
             self.add_text(iline)
 
     def _parse_line_block_title(self, iline, indent):
+        # For lines starting with '. '. Creates a block title.
         self.push_text()
         self.unravel_for_block(indent)
-        title = Block('title', indent, indent + 2, parser=self)
-        self.current.add_child(title)
-        self.current = title
+        self.factory.handle_block_title(indent, indent + 2)
         self._parse_line((' ' * self.current.inner) + iline[2:])
 
     def _parse_line_block_item_title(self, iline, indent):
@@ -1595,36 +1633,7 @@ class DuckParser:
         # start a terms element.
         self.push_text()
         self.unravel_for_indent(indent)
-
-        if self.current.is_name('tr'):
-            node = Block('th', indent, indent + 2, parser=self)
-            self.current.add_child(node)
-            self.current = node
-            self._parse_line((' ' * node.inner) + iline[2:])
-            return
-
-        if not self.current.is_name('terms'):
-            node = Block('terms', indent, parser=self)
-            self.current.add_child(node)
-            self.current = node
-        # By now we've unwound to the terms element. If the preceding
-        # block was a title, then the last item will have only title
-        # elements, and we just keep appending there.
-        if (not self.current.is_empty
-            and isinstance(self.current.children[-1], Block)
-            and self.current.children[-1].is_name('item')):
-            item = self.current.children[-1]
-            if (not item.is_empty
-                and isinstance(self.current.children[-1], Block)
-                and item.children[-1].is_name('title')):
-                self.current = item
-        if not self.current.is_name('item'):
-            item = Block('item', indent, indent + 2, parser=self)
-            self.current.add_child(item)
-            self.current = item
-        title = Block('title', indent, indent + 2, parser=self)
-        self.current.add_child(title)
-        self.current = title
+        self.factory.handle_block_item_title(indent, indent + 2)
         self._parse_line((' ' * self.current.inner) + iline[2:])
 
     def _parse_line_block_item_content(self, iline, indent):
@@ -1634,7 +1643,6 @@ class DuckParser:
         # in a terms. It might also start a list element.
         self.push_text()
         self.unravel_for_indent(indent)
-
         node = self.factory.handle_block_item_content(indent, indent + 2)
         self._parse_line((' ' * node.inner) + iline[2:])
 
