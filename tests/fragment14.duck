@@ -1,0 +1,10 @@
+@ducktype/1.0 __future__/fragments
+
+== First Section
+-- First Subtitle
+
+=== Subsection
+--- Subsection Subtitle
+
+== Seconed Section
+-- Second Subtitle

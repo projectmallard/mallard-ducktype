@@ -1,0 +1,12 @@
+<section xmlns="http://projectmallard.org/1.0/">
+ <title>First Section</title>
+ <subtitle>First Subtitle</subtitle>
+ <section>
+  <title>Subsection</title>
+  <subtitle>Subsection Subtitle</subtitle>
+ </section>
+</section>
+<section xmlns="http://projectmallard.org/1.0/">
+ <title>Seconed Section</title>
+ <subtitle>Second Subtitle</subtitle>
+</section>
