@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='mallard-ducktype',
-    version='1.0',
+    version='1.0.1',
     description='Parse Ducktype files and convert them to Mallard.',
     packages=['mallard', 'mallard.ducktype', 'mallard.ducktype.extensions'],
     scripts=['bin/ducktype'],
