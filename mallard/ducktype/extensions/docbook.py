@@ -22,8 +22,6 @@ import mallard.ducktype
 
 NSDB = 'http://docbook.org/ns/docbook'
 
-# FIXME: swap info and title
-# FIXME: change id to xml:id
 # FIXME: change output file extension
 
 leafs = ('abbrev', 'acronym', 'address', 'arg', 'artpagenums', 'authorinitials',
@@ -37,7 +35,7 @@ leafs = ('abbrev', 'acronym', 'address', 'arg', 'artpagenums', 'authorinitials',
          'lhs', 'lineage', 'link', 'literallayout', 'manvolnum', 'member',
          'methodname', 'modifier', 'msgaud', 'msglevel', 'msgorig', 'option',
          'orgdiv', 'orgname', 'othername', 'pagenums', 'para', 'paramdef',
-         'parameter', 'personname', 'primary', 'primaryie', 'productname',
+         'parameter', 'personname', 'phrase', 'primary', 'primaryie', 'productname',
          'productnumber', 'programlisting', 'pubdate', 'publishername', 'quote',
          'refclass', 'refdescriptor', 'refentrytitle', 'refmiscinfo', 'refname',
          'refpurpose', 'releaseinfo', 'remark', 'replaceable', 'revnumber',
