@@ -224,7 +224,7 @@ class Node:
     @property
     def available(self):
         for child in self.children:
-            if not child.is_name(('title', 'desc', 'cite')):
+            if not child.is_name(('info', 'title', 'desc', 'cite')):
                 return False
         return True
 
